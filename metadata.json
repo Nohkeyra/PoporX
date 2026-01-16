@@ -1,6 +1,6 @@
 {
   "name": "Pixshop Core",
-  "description": "Gemini brings professional, prompt-based image editing to your fingertips.",
+  "description": "Urban Neural Synthesis Engine powered by Gemini.",
   "requestFramePermissions": [
     "camera"
   ]

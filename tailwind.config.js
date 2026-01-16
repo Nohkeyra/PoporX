@@ -11,108 +11,62 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: 'var(--color-primary)',
-        secondary: 'var(--color-secondary)',
-        highlight: 'var(--color-highlight)',
+        primary: '#FF3300', // Hyper Orange
+        secondary: '#00F0FF', // Cyber Cyan
+        highlight: '#CCFF00', // Acid Lime
         surface: {
-          deep: 'var(--color-surface-deep)',
-          panel: 'var(--color-surface-panel)',
-          grid: 'var(--color-surface-grid)',
-          card: 'var(--color-surface-card)',
-          elevated: 'var(--color-surface-elevated)',
-          hover: 'var(--color-surface-hover)',
-          border: 'var(--color-surface-border)',
-          'border-light': 'var(--color-surface-border-light)',
-        }
+          deep: '#050505',    // Void Black
+          panel: '#0f0f11',   // Obsidian
+          grid: '#18181b',    // Zinc 900
+          card: '#18181b',    // Zinc 900
+          elevated: '#27272a',// Zinc 800
+          hover: '#27272a',
+          border: '#27272a',  // Zinc 800
+          'border-light': '#3f3f46',
+        },
+        flux: '#FF3300',   // Hyper Orange
+        vector: '#00FF9D', // Neon Mint
+        filter: '#00F0FF', // Cyber Cyan
+        type: '#FF00FF',   // Neon Magenta
+        dna: '#9D00FF',    // Electric Purple
+        adjust: '#FFD600', // Cyber Yellow
+        buff: '#2979FF',   // Electric Blue
+        veo: '#00FF9D' 
+      },
+      spacing: {
+        'panel-side': '18rem',
+        'safe-top': 'env(safe-area-inset-top)',
+        'safe-bottom': 'env(safe-area-inset-bottom)',
       },
       fontFamily: {
         sans: ['Inter', 'sans-serif'],
         display: ['Koulen', 'sans-serif'],
         mono: ['Orbitron', 'monospace'],
-        graffiti: ['"Rubik Wet Paint"', 'cursive'],
+        marker: ['"Rubik Wet Paint"', 'cursive'],
       },
       animation: {
-        'spin-slow': 'spin-slow 3s linear infinite', 
-        'fade-in': 'fadeIn 0.5s ease-out forwards',
-        'pulse-glow': 'pulseGlow 2s infinite alternate',
-        'sweep': 'sweep 3s linear infinite',
-        'scanline': 'scanline 8s linear infinite', 
-        'glitch-anim-1': 'glitch-anim-1 2s infinite linear alternate-reverse',
-        'glitch-anim-2': 'glitch-anim-2 3s infinite linear alternate-reverse',
-        'shimmer': 'shimmer 1s infinite',
-        'scan-sweep-vertical': 'scan-sweep-vertical 2s linear infinite',
-        'height-jitter': 'height-jitter 0.5s infinite',
-        'h-glitch-before': 'h-glitch-before 0.5s infinite',
-        'h-glitch-after': 'h-glitch-after 0.5s infinite',
-        'grid-move': 'grid-move 2s linear infinite', 
+        'can-rattle': 'can-rattle 0.1s ease-in-out infinite',
+        'fade-in': 'fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards',
+        'shimmer': 'shimmer 2.5s infinite linear',
+        'overspray-pulse': 'overspray 3s ease-in-out infinite',
+        'drip': 'drip 2s ease-in-out infinite',
+        'scanline': 'scanline 8s linear infinite',
+        'pulse-glow': 'pulseGlow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
       },
       keyframes: {
-        'spin-slow': { 
-          '0%': { transform: 'rotate(0deg)' },
-          '100%': { transform: 'rotate(360deg)' },
-        },
-        fadeIn: {
-          '0%': { opacity: '0' },
-          '100%': { opacity: '1' },
-        },
-        pulseGlow: { 
-          '0%': { boxShadow: '0 0 5px rgba(248, 19, 13, 0.2)' },
-          '100%': { boxShadow: '0 0 15px rgba(248, 19, 13, 0.5)' }
-        },
-        'grid-move': { 
-          '0%': { backgroundPosition: '0 0' },
-          '100%': { backgroundPosition: '40px 40px' }
-        },
-        sweep: { 
-          '0%': { backgroundPosition: '-200% 0' },
-          '100%': { backgroundPosition: '200% 0' }
-        },
-        scanline: { 
-          '0%': { backgroundPosition: '0 0' },
-          '100%': { backgroundPosition: '0 100%' }
-        },
-        'glitch-anim-1': { 
-          '0%': { clip: 'rect(22px, 9999px, 92px, 0)' },
-          '25%': { clip: 'rect(33px, 9999px, 76px, 0)' },
-          '50%': { clip: 'rect(10px, 9999px, 80px, 0)' },
-          '75%': { clip: 'rect(50px, 9999px, 60px, 0)' },
-          '100%': { clip: 'rect(25px, 9999px, 75px, 0)' },
-        },
-        'glitch-anim-2': { 
-          '0%': { clip: 'rect(85px, 9999px, 100px, 0)' },
-          '25%': { clip: 'rect(45px, 9999px, 90px, 0)' },
-          '50%': { clip: 'rect(65px, 9999px, 85px, 0)' },
-          '75%': { clip: 'rect(15px, 9999px, 70px, 0)' },
-          '100%': { clip: 'rect(95px, 9999px, 110px, 0)' },
-        },
-        shimmer: { 
-          '0%': { transform: 'translateX(-100%)' },
-          '100%': { transform: 'translateX(100%)' },
-        },
-        'scan-sweep-vertical': { 
-          '0%': { top: '-10%', opacity: '0' },
-          '10%': { opacity: '0.8' },
-          '90%': { opacity: '0.8' },
-          '100%': { top: '110%', opacity: '0' },
-        },
-        'height-jitter': { 
-          '0%, 100%': { transform: 'scaleY(1)' },
-          '50%': { transform: 'scaleY(0.5)' },
-        },
-        'h-glitch-before': { 
-          '0%': { clip: 'rect(62px, 9999px, 72px, 0)', transform: 'skew(0.2deg)' },
-          '25%': { clip: 'rect(38px, 9999px, 52px, 0)', transform: 'skew(0.5deg)' },
-          '50%': { clip: 'rect(11px, 9999px, 22px, 0)', transform: 'skew(0.1deg)' },
-          '75%': { clip: 'rect(78px, 9999px, 90px, 0)', transform: 'skew(0.8deg)' },
-          '100%': { clip: 'rect(45px, 9999px, 58px, 0)', transform: 'skew(0.3deg)' },
-        },
-        'h-glitch-after': { 
-          '0%': { clip: 'rect(85px, 9999px, 93px, 0)', transform: 'skew(-0.3deg)' },
-          '25%': { clip: 'rect(25px, 9999px, 38px, 0)', transform: 'skew(-0.6deg)' },
-          '50%': { clip: 'rect(50px, 9999px, 63px, 0)', transform: 'skew(-0.2deg)' },
-          '75%': { clip: 'rect(18px, 9999px, 28px, 0)', transform: 'skew(-0.9deg)' },
-          '100%': { clip: 'rect(70px, 9999px, 82px, 0)', transform: 'skew(-0.4deg)' },
-        }
+        fadeIn: { '0%': { opacity: '0', transform: 'translateY(4px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+        shimmer: { '0%': { transform: 'translateX(-100%)' }, '100%': { transform: 'translateX(100%)' } },
+        'can-rattle': { '0%, 100%': { transform: 'rotate(-2deg)' }, '50%': { transform: 'rotate(2deg)' } },
+        overspray: { '0%, 100%': { opacity: '0.1', transform: 'scale(1)' }, '50%': { opacity: '0.3', transform: 'scale(1.02)' } },
+        drip: { '0%': { transform: 'translateY(0)', opacity: '0.6' }, '100%': { transform: 'translateY(30px)', opacity: '0' } },
+        scanline: { '0%': { transform: 'translateY(-100%)' }, '100%': { transform: 'translateY(100%)' } },
+        pulseGlow: { '0%, 100%': { opacity: '1' }, '50%': { opacity: '0.5' } }
+      },
+      boxShadow: {
+        'neon-orange': '0 0 10px rgba(255, 51, 0, 0.3)',
+        'neon-cyan': '0 0 10px rgba(0, 240, 255, 0.3)',
+        'neon-purple': '0 0 10px rgba(157, 0, 255, 0.3)',
+        'inner-deep': 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.6)',
       }
     },
   },

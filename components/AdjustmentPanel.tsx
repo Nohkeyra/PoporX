@@ -1,13 +1,15 @@
 
 /**
  * @license
- * SPDX-License-Identifier: Apache-200
+ * SPDX-License-Identifier: Apache-2.0
 */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { GenerationRequest } from '../App';
-import { SunIcon, SlidersIcon, XIcon, SparklesIcon } from './icons';
+import { SunIcon, SlidersIcon, SaveIcon, TrashIcon, CopyIcon } from './icons';
 import { refineImagePrompt, PROTOCOLS } from '../services/geminiService'; 
+import { loadUserPresets, addUserPreset, deleteUserPreset } from '../services/persistence';
+import { PresetSaveModal } from './PresetSaveModal';
 
 interface AdjustmentPanelProps {
   onRequest: (request: GenerationRequest) => void;
@@ -16,26 +18,53 @@ interface AdjustmentPanelProps {
   isFastAiEnabled: boolean; 
 }
 
-export const AdjustmentPanel: React.FC<AdjustmentPanelProps> = ({ onRequest, isLoading, setViewerInstruction, isFastAiEnabled }) => {
+const PRESETS = [
+    { name: 'Studio', description: 'Clean lighting.', prompt: 'Professional studio lighting, soft shadows, neutral white balance, high clarity.' },
+    { name: 'Golden', description: 'Warm glow.', prompt: 'Golden hour lighting, warm color temperature, soft sun flares, rich shadows.' },
+    { name: 'Cyber', description: 'Teal & Magenta.', prompt: 'Cyberpunk color grading, teal and magenta split tone, crushed blacks, high contrast.' },
+    { name: 'Grimy', description: 'Desaturated.', prompt: 'Desaturated colors, high structure, added film grain, green tint in shadows.' },
+    { name: 'Noir', description: 'Cinematic B&W.', prompt: 'Film noir black and white photography, high contrast, dramatic shadows, venetian blind lighting.' },
+    { name: 'Bleach', description: 'Bleach bypass.', prompt: 'Bleach bypass film look, high contrast, low saturation, gritty texture, silver halide.' },
+    { name: 'Film', description: 'Kodak Portra.', prompt: 'Analog film photography style, Kodak Portra 400, fine grain, natural skin tones, soft highlights.' },
+    { name: 'Vogue', description: 'High fashion.', prompt: 'High key fashion lighting, overexposed highlights, clean white background, sharp focus.' },
+    { name: 'Vivid', description: 'High sat.', prompt: 'Boost vibrance, high saturation, clear definition, punchy contrast.' },
+    { name: 'Matte', description: 'Faded blacks.', prompt: 'Lifted blacks, matte finish, low contrast, soft pastel tones.' },
+    { name: 'HDR', description: 'Dynamic range.', prompt: 'High dynamic range, recovered highlights, open shadows, detailed textures.' },
+    { name: 'Crisp', description: 'Sharpness.', prompt: 'Enhance edge sharpness, micro-contrast boost, de-haze, clear clarity.' }
+];
+
+export const AdjustmentPanel: React.FC<AdjustmentPanelProps> = ({ onRequest, isLoading, isFastAiEnabled }) => {
   const [userPrompt, setUserPrompt] = useState('');
   const [selectedPresetName, setSelectedPresetName] = useState<string>('');
-  const [isRefining, setIsRefining] = useState(false);
+  const [customPresets, setCustomPresets] = useState<any[]>([]);
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+  const [intensity, setIntensity] = useState(50); // Visual only, modifies prompt strength conceptually
   
-  const presets = [
-    { name: 'AI Super-Res', description: 'Upscale texture & sharpen.', prompt: 'Enhance image resolution, sharpen fine details, improve texture fidelity, and apply 8k quality finish.' },
-    { name: 'Perfect Skin 2026', description: 'High-end beauty retouch.', prompt: 'Apply high-end beauty retouching: frequency separation for skin, retain pore texture, remove blemishes, add subsurface scattering glow.' },
-    { name: 'Color Grade 2026', description: 'Modern teal/orange split.', prompt: 'Apply a modern 2026 cinematic color grade: deep teal shadows, rich warm skin tones, punchy contrast, and subtle film halation.' },
-    { name: 'Auto Enhance', description: 'Balanced exposure & color.', prompt: 'Perform a professional-grade automatic adjustment of exposure, contrast, and color saturation.' },
-    { name: 'Golden Hour', description: 'Warm sunset lighting.', prompt: 'Re-light the image with the warm, soft, low-angle light of the golden hour.' },
-    { name: 'Dramatic B&W', description: 'High-contrast monochrome.', prompt: 'Convert the image to a high-contrast black and white. Deepen the blacks, brighten the whites.' },
-    { name: 'Cinematic', description: 'Teal & Orange grading.', prompt: 'Apply a professional cinematic color grade with teal in the shadows and orange in the highlights.' },
-    { name: 'Blur BG', description: 'Depth-of-field bokeh.', prompt: 'Apply a photorealistic depth-of-field blur (bokeh) to the background, keeping subject sharp.' },
-    { name: 'HDR Pop', description: 'Vibrant dynamic range.', prompt: 'Apply a high-dynamic-range (HDR) effect to recover details in shadows and highlights.' },
-    { name: 'Matte Finish', description: 'Faded blacks, editorial.', prompt: 'Apply a matte photo finish by lifting the black levels to a faded grey.' },
-    { name: 'Cold Winter', description: 'Cool blue temperature.', prompt: 'Shift the color temperature of the image to be colder, with subtle blue tones.' },
-  ];
+  const loadPresets = useCallback(async () => {
+    try {
+        const stored = await loadUserPresets();
+        setCustomPresets(stored.filter((p: any) => p.recommendedPanel === 'adjust_panel' || p.recommendedPanel === 'adjust'));
+    } catch(e) {}
+  }, []);
 
-  const selectedPreset = useMemo(() => presets.find(p => p.name === selectedPresetName), [selectedPresetName]);
+  useEffect(() => {
+    loadPresets();
+    window.addEventListener('stylePresetsUpdated', loadPresets);
+    return () => window.removeEventListener('stylePresetsUpdated', loadPresets);
+  }, [loadPresets]);
+
+  const allPresets = useMemo(() => {
+      const formattedCustom = customPresets.map(p => ({
+          name: p.name,
+          description: p.description,
+          prompt: p.applyPrompt || p.genPrompt,
+          isCustom: true,
+          id: p.id
+      }));
+      return [...formattedCustom, ...PRESETS];
+  }, [customPresets]);
+
+  const selectedPreset = useMemo(() => allPresets.find(p => p.name === selectedPresetName), [selectedPresetName, allPresets]);
 
   const handleApply = () => {
     const parts = [];
@@ -43,97 +72,147 @@ export const AdjustmentPanel: React.FC<AdjustmentPanelProps> = ({ onRequest, isL
     if (userPrompt.trim()) parts.push(userPrompt.trim());
     
     if (parts.length > 0) {
-      const adjustmentPrompt = `Apply these aesthetic adjustments to the input image, enhancing its primary subject and overall visual quality: ${parts.join('. ')}`;
-      onRequest({ type: 'adjust', prompt: adjustmentPrompt, useOriginal: false, systemInstructionOverride: PROTOCOLS.IMAGE_TRANSFORMER });
+      const adjustmentPrompt = `Apply lighting and color grade: ${parts.join('. ')}. Intensity level: ${intensity}%.`;
+      onRequest({ 
+        type: 'adjust', 
+        prompt: adjustmentPrompt, 
+        useOriginal: false, 
+        systemInstructionOverride: PROTOCOLS.EDITOR 
+      });
     }
   };
 
-  const handleRefine = async () => {
-      if (!userPrompt.trim() || isRefining) return;
-      setIsRefining(true);
-      try {
-        const refined = await refineImagePrompt(userPrompt, isFastAiEnabled);
-        setUserPrompt(refined);
-      } catch (e) { console.error(e); } 
-      finally { setIsRefining(false); }
+  const handleSavePreset = async (name: string, desc: string) => {
+      let promptToSave = userPrompt.trim();
+      if (selectedPreset && !selectedPreset.isCustom) {
+          promptToSave = promptToSave ? `${selectedPreset.prompt}. ${promptToSave}` : selectedPreset.prompt;
+      }
+      const newPreset = {
+          id: `adjust_${Date.now()}`,
+          name, description: desc,
+          applyPrompt: promptToSave,
+          recommendedPanel: 'adjust_panel',
+          timestamp: Date.now()
+      };
+      await addUserPreset(newPreset);
   };
 
-  const isActionDisabled = isLoading || (!selectedPreset && !userPrompt.trim());
+  const handleDelete = async (e: React.MouseEvent, id: string) => {
+      e.stopPropagation();
+      if(confirm('Delete this preset?')) await deleteUserPreset(id);
+  };
+
+  // Dynamic animation values
+  const pulseDuration = useMemo(() => {
+      // Slower (4s) at 0 intensity, Faster (0.5s) at 100 intensity
+      return `${Math.max(0.5, 4 - (intensity / 25))}s`;
+  }, [intensity]);
+
+  const bgOpacity = useMemo(() => {
+      return 0.15 + (intensity / 200); // 0.15 to 0.65 (Brighter base)
+  }, [intensity]);
 
   return (
-    <div className="flex flex-col h-full bg-surface-panel">
-      {/* Header */}
-      <div className="p-4 border-b border-white/5 bg-surface-panel relative z-10 shrink-0">
+    <div className="flex flex-col h-full bg-transparent overflow-hidden relative">
+      <PresetSaveModal isOpen={isSaveModalOpen} onClose={() => setIsSaveModalOpen(false)} onSave={handleSavePreset} />
+      
+      {/* Animated Background */}
+      <div 
+        className="absolute inset-0 pointer-events-none z-0 animate-pulse-glow" 
+        style={{ 
+            background: `radial-gradient(circle at 50% -20%, rgba(255, 214, 0, ${bgOpacity}) 0%, transparent 70%)`,
+            animationDuration: pulseDuration
+        }} 
+      />
+
+      <div className="p-5 border-b border-zinc-800 bg-surface-panel/90 shrink-0 relative z-10 backdrop-blur-md">
         <div className="flex items-center gap-3">
-             <div className="w-8 h-8 rounded bg-gradient-to-br from-orange-500 to-red-900 flex items-center justify-center shadow-[0_0_10px_rgba(249,115,22,0.4)]">
-                 <SunIcon className="w-5 h-5 text-white" />
+             <div className="w-8 h-8 rounded-sm bg-adjust/20 border border-adjust/50 flex items-center justify-center shadow-[0_0_20px_rgba(255,214,0,0.4)]">
+                 <SunIcon className="w-5 h-5 text-adjust" />
              </div>
              <div>
-                 <h3 className="text-lg font-black italic tracking-tighter text-white uppercase leading-none font-display">
-                   Adjustments
-                 </h3>
-                 <p className="text-[10px] text-orange-500 font-mono tracking-widest uppercase">
-                   Signal Processing
-                 </p>
+                 <h3 className="text-lg font-black italic tracking-tighter text-white uppercase leading-none font-display">Neural Light</h3>
+                 <p className="text-[8px] text-adjust font-mono tracking-[0.2em] uppercase font-bold drop-shadow-[0_0_5px_rgba(255,214,0,0.5)]">Luminance.Engine</p>
              </div>
         </div>
       </div>
       
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
-          {/* Custom Input */}
-          <div className="bg-surface-card border border-surface-border rounded-lg p-3 group focus-within:border-orange-500/50 transition-colors">
-              <div className="flex justify-between items-center mb-2">
-                  <label className="text-[9px] font-mono text-gray-500 uppercase tracking-wider">Manual Override</label>
-                  <div className="flex gap-2">
-                    {userPrompt && <button onClick={() => setUserPrompt('')}><XIcon className="w-3 h-3 text-gray-600 hover:text-white" /></button>}
-                    <button onClick={handleRefine} disabled={!userPrompt.trim() || isRefining} className="text-orange-500 disabled:opacity-30"><SparklesIcon className={`w-3 h-3 ${isRefining ? 'animate-spin' : ''}`} /></button>
+      <div className="flex-1 overflow-y-auto p-5 space-y-6 custom-scrollbar relative z-10">
+          <div>
+              <h4 className="panel-label border-adjust/50 pl-2">Calibration</h4>
+              <div className="group border border-zinc-800 bg-black/40 rounded-sm overflow-hidden focus-within:border-adjust/60 focus-within:shadow-[0_0_15px_rgba(255,214,0,0.15)] transition-all relative shadow-inner">
+                  <div className="flex justify-between items-center bg-zinc-900/50 px-3 py-2 border-b border-zinc-800/50">
+                      <div className="flex items-center gap-2">
+                          <div className="w-1.5 h-1.5 bg-adjust rounded-full animate-pulse shadow-[0_0_5px_rgba(255,214,0,0.8)]" />
+                          <span className="text-[8px] font-mono text-zinc-500 uppercase tracking-widest font-black group-focus-within:text-adjust transition-colors">GRADE_PAYLOAD</span>
+                      </div>
+                      <button onClick={() => setIsSaveModalOpen(true)} disabled={!userPrompt.trim()} className="text-zinc-600 hover:text-adjust disabled:opacity-20 transition-colors" title="Save">
+                          <SaveIcon className="w-3.5 h-3.5" />
+                      </button>
+                  </div>
+                  <textarea 
+                      value={userPrompt}
+                      onChange={(e) => setUserPrompt(e.target.value)}
+                      placeholder="Specify tone curve, exposure, or color shift..."
+                      className="w-full bg-transparent p-4 text-xs font-mono text-zinc-300 placeholder-zinc-700 focus:outline-none resize-none h-20 leading-relaxed selection:bg-adjust/30"
+                  />
+                  <div className="absolute bottom-0 right-0 p-1 opacity-20 pointer-events-none group-focus-within:opacity-100 transition-opacity duration-300">
+                        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M10 10L0 10L10 0V10Z" fill="var(--color-adjust)" />
+                        </svg>
                   </div>
               </div>
-              <textarea 
-                  value={userPrompt}
-                  onChange={(e) => setUserPrompt(e.target.value)}
-                  placeholder="Describe specific adjustments..."
-                  className="w-full bg-transparent text-gray-300 text-xs font-mono focus:outline-none resize-none h-16 placeholder-gray-700 leading-relaxed"
-              />
           </div>
 
-          {/* Control Grid */}
+          <div className="accent-adjust">
+                <div className="flex justify-between mb-2 items-center">
+                    <h4 className="panel-label m-0 border-adjust/50 pl-2">Grade Intensity</h4>
+                    <span className="text-[8px] font-mono text-adjust font-black drop-shadow-[0_0_5px_rgba(255,214,0,0.5)]">{intensity}%</span>
+                </div>
+                <input 
+                    type="range" 
+                    min="10" max="100" 
+                    value={intensity} 
+                    onChange={(e) => setIntensity(Number(e.target.value))} 
+                    className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-adjust [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:shadow-[0_0_10px_rgba(255,214,0,0.8)]"
+                />
+          </div>
+
           <div>
-            <h4 className="text-[9px] font-black text-gray-600 uppercase tracking-[0.2em] mb-2 px-1">Global Presets</h4>
-            <div className="grid grid-cols-2 gap-2">
-                {presets.map(preset => (
+            <h4 className="panel-label border-adjust/50 pl-2">DNA Presets</h4>
+            <div className="grid grid-cols-2 gap-2 pb-4">
+                {allPresets.map(preset => (
                     <button
                         key={preset.name}
                         onClick={() => setSelectedPresetName(preset.name === selectedPresetName ? '' : preset.name)}
-                        className={`h-14 border rounded-sm flex items-center px-3 gap-3 transition-all ${selectedPresetName === preset.name ? 'bg-orange-950/20 border-orange-500' : 'bg-surface-elevated border-surface-border hover:border-gray-600'}`}
+                        className={`preset-card min-h-[4rem] flex flex-col justify-between ${
+                            selectedPresetName === preset.name 
+                            ? 'bg-adjust/20 text-white border-adjust shadow-[0_0_15px_rgba(255,214,0,0.25)] z-10' 
+                            : 'text-zinc-600 hover:text-zinc-400'
+                        }`}
                     >
-                        <div className={`w-1.5 h-1.5 rounded-full shadow-sm flex-shrink-0 ${selectedPresetName === preset.name ? 'bg-orange-500 shadow-[0_0_5px_#f97316]' : 'bg-gray-800'}`}></div>
+                        <div className={`text-[9px] font-black uppercase tracking-wider transition-colors ${selectedPresetName === preset.name ? 'text-white' : 'text-zinc-400'}`}>{preset.name}</div>
+                        <p className={`text-[8px] leading-tight font-mono uppercase tracking-tight truncate ${selectedPresetName === preset.name ? 'text-adjust' : 'text-zinc-700'}`}>{preset.description}</p>
                         
-                        <div className="text-left overflow-hidden">
-                            <div className={`text-xs font-bold uppercase truncate ${selectedPresetName === preset.name ? 'text-white' : 'text-gray-400'}`}>{preset.name}</div>
-                            <div className="text-[8px] text-gray-600 truncate">{preset.description}</div>
-                        </div>
+                        {(preset.isCustom) && (
+                             <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                <div onClick={(e) => handleDelete(e, preset.id)} className="p-1 text-zinc-500 hover:text-red-500 bg-black/80 rounded"><TrashIcon className="w-3 h-3" /></div>
+                            </div>
+                        )}
                     </button>
                 ))}
             </div>
           </div>
       </div>
 
-      {/* Footer */}
-      <div className="p-4 border-t border-surface-hover bg-surface-panel shrink-0">
-          <button
-              onClick={handleApply}
-              disabled={isActionDisabled}
-              className="w-full h-12 relative overflow-hidden group rounded-sm bg-surface-elevated border border-orange-900/30 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-              <div className="absolute inset-0 bg-gradient-to-r from-orange-600 to-red-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-              {!isActionDisabled && <div className="absolute inset-0 bg-orange-900/20"></div>}
-              
-              <div className="relative z-10 flex items-center justify-center gap-2 h-full">
-                  <span className={`font-black italic uppercase tracking-widest text-sm skew-x-[-10deg] ${isActionDisabled ? 'text-gray-500' : 'text-orange-400 group-hover:text-white'}`}>
-                      Execute Adjustment
+      <div className="p-5 border-t border-zinc-800 bg-surface-panel/90 shrink-0 relative z-10 backdrop-blur-md">
+          <button onClick={handleApply} disabled={isLoading || (!selectedPreset && !userPrompt.trim())} className="execute-btn group border-zinc-800 hover:border-adjust transition-colors">
+              <div className="execute-btn-glow" style={{ background: 'radial-gradient(circle, #FFD600 0%, transparent 70%)' }}></div>
+              <div className="relative z-10 flex items-center justify-center gap-3 h-full">
+                  <span className={`font-black italic uppercase tracking-[0.2em] text-xs transition-colors skew-x-[-10deg] ${isLoading ? 'text-zinc-500' : 'text-zinc-500 group-hover:text-adjust'}`}>
+                      {isLoading ? 'Calibrating...' : 'Execute Grade'}
                   </span>
-                  {!isActionDisabled && <SlidersIcon className="w-4 h-4 text-orange-400 group-hover:text-white skew-x-[-10deg]" />}
+                  <SlidersIcon className={`w-4 h-4 transition-colors ${isLoading ? 'text-zinc-500' : 'text-zinc-500 group-hover:text-adjust'}`} />
               </div>
           </button>
       </div>

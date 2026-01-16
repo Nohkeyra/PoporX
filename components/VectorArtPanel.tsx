@@ -1,3 +1,4 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -5,16 +6,18 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { GenerationRequest } from '../App';
-import { VectorIcon, XIcon, CheckIcon, AlertIcon, SparklesIcon, EyeIcon } from './icons';
+import { VectorIcon, SparklesIcon, SaveIcon, TrashIcon } from './icons';
 import { describeImageForPrompt, PROTOCOLS, refineImagePrompt } from '../services/geminiService';
-import { loadUserPresets } from '../services/persistence';
+import { loadUserPresets, addUserPreset, deleteUserPreset } from '../services/persistence';
+import { PresetSaveModal } from './PresetSaveModal';
 
 interface VectorPreset {
   name: string;
   description: string;
   applyPrompt: string;
   genPrompt: string;
-  negative_prompt?: string;
+  id?: string;
+  isCustom?: boolean;
 }
 
 interface VectorArtPanelProps {
@@ -24,123 +27,47 @@ interface VectorArtPanelProps {
   currentImageFile?: File | null;
   setViewerInstruction: (text: string | null) => void;
   initialPrompt?: string;
+  isFastAiEnabled: boolean;
 }
 
 const basePresetGroups: Record<string, VectorPreset[]> = {
-  "VECTOR 2026 TRENDS": [
-    {
-        name: 'Glassmorphism Icon',
-        description: 'Frosted glass layers, soft blur.',
-        applyPrompt: 'Transform into glassmorphism vector art.',
-        genPrompt: 'Glassmorphism vector icon, frosted glass layers, soft background blur, translucent shapes, pastel colors, modern UI aesthetic, white background'
-    },
-    {
-        name: 'Acid Graphic',
-        description: 'Distorted grids, chrome, rave style.',
-        applyPrompt: 'Transform into acid graphic vector art.',
-        genPrompt: 'Acid graphic vector art, distorted grids, chrome typography elements, rave poster aesthetic, high contrast black and neon green, y2k revival'
-    },
-    {
-        name: 'Fluid Mesh Gradient',
-        description: 'Abstract flowing color blends.',
-        applyPrompt: 'Transform into fluid mesh gradient vector.',
-        genPrompt: 'Fluid mesh gradient vector, abstract organic shapes, smooth color transitions, vibrant auroral colors, modern tech wallpaper style'
-    },
-    {
-        name: 'Ultra-Flat Cyber',
-        description: 'Pure neon colors, zero gradients.',
-        applyPrompt: 'Transform into ultra-flat cybernetic vector.',
-        genPrompt: 'Ultra-flat cybernetic vector art, high contrast icons, pure neon colors on black, zero gradients, absolute flat design'
-    }
+  "IDENTITY": [
+    { name: 'Monogram', description: 'Intertwined letters.', applyPrompt: 'Vector monogram logo, intertwined letters.', genPrompt: 'Minimalist vector monogram logo, white background.' },
+    { name: 'Emblem', description: 'Crest style.', applyPrompt: 'Vector crest emblem, shield shape.', genPrompt: 'Vector emblem logo, shield crest, thick lines.' },
+    { name: 'Badge', description: 'Circular badge.', applyPrompt: 'Vector badge style, circular text.', genPrompt: 'Vector badge logo, circular layout, vintage style.' },
+    { name: 'Mascot', description: 'Esports character.', applyPrompt: 'Esports mascot vector logo.', genPrompt: 'Aggressive esports mascot vector, bold outlines, flat colors.' }
   ],
-  "STRICT VECTOR": [
-    { 
-      name: 'Geometric Icon', 
-      description: 'Simplified geometric forms, ultra-clean.', 
-      applyPrompt: `Transform into minimalist geometric vector icon.`, 
-      genPrompt: 'Minimalist geometric vector icon, perfect geometric construction, clean lines, professional logo style, white background' 
-    },
-    { 
-      name: 'Flat Illustration', 
-      description: 'Modern 2D flat style, no gradients.', 
-      applyPrompt: `Transform into high-quality flat vector illustration.`, 
-      genPrompt: 'High-quality flat vector illustration, bold flat colors, crisp outlines, modern graphic design, 2D aesthetic, isolated on white' 
-    },
-    { 
-      name: 'Mono Line Art', 
-      description: 'Single weight black lines, minimal.', 
-      applyPrompt: `Transform into single-weight mono line art vector.`, 
-      genPrompt: 'Mono line art vector, single-weight black strokes, minimal, elegant, negative space focus, no shading, white background' 
-    },
-    { 
-      name: 'Sticker Die-Cut', 
-      description: 'Thick white border, vibrant colors.', 
-      applyPrompt: `Transform into pop art vector sticker.`, 
-      genPrompt: 'Pop art vector sticker, vibrant colors, thick white die-cut border, comic book aesthetic, vector style' 
-    }
+  "STREET": [
+    { name: 'Stencil', description: 'Spray cutout.', applyPrompt: 'Stencil vector art style, spray paint texture.', genPrompt: 'Street art stencil vector, sharp edges, black and white.' },
+    { name: 'Sticker', description: 'Die-cut vinyl.', applyPrompt: 'Die-cut sticker vector, white border.', genPrompt: 'Vector sticker design, white die-cut border, thick outlines.' },
+    { name: 'Tag', description: 'Handstyle.', applyPrompt: 'Graffiti tag vector style.', genPrompt: 'Graffiti handstyle tag, dripping ink, vector.' }
   ],
-  "TECHNICAL & BRANDING": [
-    {
-      name: 'Tech Logo Mark',
-      description: 'Abstract gradients, app icon style.',
-      applyPrompt: 'Transform into modern tech company logo mark.',
-      genPrompt: 'Modern tech logo mark, abstract geometric shape, gradient vector, app icon aesthetic, rounded corners, professional branding'
-    },
-    {
-      name: 'Esports Mascot',
-      description: 'Aggressive, bold outlines, energetic.',
-      applyPrompt: 'Transform into aggressive esports mascot logo.',
-      genPrompt: 'Esports mascot logo, aggressive expression, thick bold vector outlines, vibrant team colors, vector illustration style'
-    },
-    {
-      name: 'Blueprint Schematic',
-      description: 'White lines on blue, technical.',
-      applyPrompt: 'Transform into technical blueprint vector.',
-      genPrompt: 'Technical blueprint vector, white lines on classic blue background, schematic style, architectural measures, precise line work'
-    }
+  "ILLUSTRATION": [
+    { name: 'Pop Art', description: 'Bold halftone.', applyPrompt: 'Pop art vector style, halftone dots.', genPrompt: 'Pop art vector illustration, bold colors, halftone pattern.' },
+    { name: 'Woodcut', description: 'Engraved lines.', applyPrompt: 'Woodcut vector style, hatching lines.', genPrompt: 'Woodcut vector illustration, engraving style, black and white.' },
+    { name: 'Low Poly', description: 'Geometric mesh.', applyPrompt: 'Low poly vector style, geometric.', genPrompt: 'Low poly vector illustration, geometric triangles, gradient fills.' }
   ],
-  "ARTISTIC & RETRO": [
-    {
-      name: 'Retro Pop Art',
-      description: 'Halftones, comic style, bold.',
-      applyPrompt: 'Transform into retro pop art vector.',
-      genPrompt: 'Retro pop art vector, halftone dots pattern, comic book style, bold primary colors, thick black outlines, Roy Lichtenstein style'
-    },
-    {
-      name: 'Low Poly Vector',
-      description: 'Triangular mesh, crystalline look.',
-      applyPrompt: 'Transform into low poly vector art.',
-      genPrompt: 'Low poly vector art, geometric triangles, crystalline facet structure, flat shading, abstract geometric aesthetic'
-    },
-    {
-      name: 'Synthwave Grid',
-      description: '80s neon wireframe aesthetic.',
-      applyPrompt: 'Transform into 80s synthwave vector graphics.',
-      genPrompt: '80s synthwave vector, neon wireframe, retro futuristic sun, digital grid, cyberpunk vector aesthetic, dark background'
-    }
+  "MINIMAL": [
+    { name: 'Line Art', description: 'Single monoline.', applyPrompt: 'Continuous line art vector.', genPrompt: 'Minimalist continuous line drawing, black on white.' },
+    { name: 'Flat', description: 'Solid shapes.', applyPrompt: 'Flat design vector icon.', genPrompt: 'Flat vector illustration, geometric shapes, no gradients.' },
+    { name: 'Blueprint', description: 'Schematic.', applyPrompt: 'Technical blueprint vector.', genPrompt: 'Technical blueprint, cyan lines, grid background.' }
   ]
 };
 
-export const VectorArtPanel: React.FC<VectorArtPanelProps> = ({ onRequest, isLoading, hasImage, currentImageFile, setViewerInstruction, initialPrompt }) => {
+export const VectorArtPanel: React.FC<VectorArtPanelProps> = ({ onRequest, isLoading, hasImage, currentImageFile, setViewerInstruction, initialPrompt, isFastAiEnabled }) => {
   const [userPrompt, setUserPrompt] = useState('');
-  const [selectedPresetName, setSelectedPresetName] = useState<string>('Flat Illustration');
+  const [selectedPresetName, setSelectedPresetName] = useState<string>('Stencil');
   const [isRefining, setIsRefining] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
   const [customPresets, setCustomPresets] = useState<any[]>([]);
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
 
   const loadPresets = useCallback(async () => {
     try {
         const stored = await loadUserPresets();
-        const relevant = stored.filter((p: any) => p.recommendedPanel === 'vector_art_panel')
-                               .map((p: any) => ({
-                                   ...p,
-                                   genPrompt: p.genPrompt || p.applyPrompt 
-                               }));
-        setCustomPresets(relevant);
-    } catch(e) {
-        console.error("VectorPanel preset load error", e);
-    }
+        setCustomPresets(stored.filter((p: any) => p.recommendedPanel === 'vector_art_panel'));
+    } catch(e) {}
   }, []);
 
   useEffect(() => {
@@ -150,18 +77,12 @@ export const VectorArtPanel: React.FC<VectorArtPanelProps> = ({ onRequest, isLoa
   }, [loadPresets]);
 
   useEffect(() => {
-    if (initialPrompt) {
-        setUserPrompt(initialPrompt);
-        setSelectedPresetName(''); 
-    }
+    if (initialPrompt) { setUserPrompt(initialPrompt); setSelectedPresetName(''); }
   }, [initialPrompt]);
 
   const presetGroups = useMemo(() => {
     if (customPresets.length === 0) return basePresetGroups;
-    return {
-        "MY SAVED DNA": customPresets,
-        ...basePresetGroups
-    };
+    return { "USER DNA": customPresets, ...basePresetGroups };
   }, [customPresets]);
 
   const allPresets = useMemo(() => Object.values(presetGroups).flat() as VectorPreset[], [presetGroups]);
@@ -172,175 +93,136 @@ export const VectorArtPanel: React.FC<VectorArtPanelProps> = ({ onRequest, isLoa
     setLocalError(null);
     try {
         let effectiveSubject = userPrompt.trim();
-
-        // Auto-Analysis logic if prompt is empty
         if (!effectiveSubject && hasImage && currentImageFile) {
-            setViewerInstruction("AI ANALYZING SUBJECT DNA...");
-            try {
-                effectiveSubject = await describeImageForPrompt(currentImageFile);
-            } catch (err) {
-                console.warn('Vision analysis failed:', err);
-                effectiveSubject = "the primary subject";
-            } finally {
-                setViewerInstruction(null);
-            }
-        } else if (!effectiveSubject) {
-            effectiveSubject = "a professional vector graphic";
-        }
+            setViewerInstruction("ANALYZING SOURCE...");
+            effectiveSubject = await describeImageForPrompt(currentImageFile).catch(() => "primary subject");
+            setViewerInstruction(null);
+        } else if (!effectiveSubject) effectiveSubject = "primary subject";
 
         let fullPrompt = "";
-        let systemInstructionOverride = PROTOCOLS.DESIGNER;
+        let sysOverride = PROTOCOLS.DESIGNER;
 
         if (selectedPreset) {
             if (hasImage) {
-                 fullPrompt = `${selectedPreset.applyPrompt} The subject is: ${effectiveSubject}. Maintain vector style strictly.`;
-                 systemInstructionOverride = PROTOCOLS.IMAGE_TRANSFORMER;
+                 fullPrompt = `${selectedPreset.applyPrompt} Subject: ${effectiveSubject}. Pure vector style.`;
+                 sysOverride = PROTOCOLS.IMAGE_TRANSFORMER;
             } else {
-                 const genPromptToUse = selectedPreset.genPrompt || selectedPreset.applyPrompt;
-                 fullPrompt = `${genPromptToUse}, ${effectiveSubject}`;
-                 systemInstructionOverride = PROTOCOLS.DESIGNER;
+                 fullPrompt = `${selectedPreset.genPrompt || selectedPreset.applyPrompt}, ${effectiveSubject}`;
             }
         } else {
-             fullPrompt = `${effectiveSubject}. Vector art style, flat colors, clean lines.`;
-             systemInstructionOverride = hasImage ? PROTOCOLS.IMAGE_TRANSFORMER : PROTOCOLS.DESIGNER;
+             fullPrompt = `${effectiveSubject}. Vector art, flat colors, clean lines.`;
+             sysOverride = hasImage ? PROTOCOLS.IMAGE_TRANSFORMER : PROTOCOLS.DESIGNER;
         }
 
-        onRequest({ 
-            type: 'vector', 
-            prompt: fullPrompt, 
-            forceNew: !hasImage, 
-            aspectRatio: '1:1', 
-            systemInstructionOverride: systemInstructionOverride,
-            negativePrompt: selectedPreset?.negative_prompt || "photorealistic, 3d, shading, gradients, noise, blurry"
-        });
-    } catch (e: any) {
-        console.error(e);
-        setLocalError(e.message || "Vector synthesis engine malfunction.");
-    } finally {
-        setIsAnalyzing(false);
-    }
+        onRequest({ type: 'vector', prompt: fullPrompt, forceNew: !hasImage, aspectRatio: '1:1', systemInstructionOverride: sysOverride });
+    } catch (e: any) { setLocalError(e.message || "Malfunction."); } 
+    finally { setIsAnalyzing(false); }
   };
   
-  const handleAnalyzeImage = async () => {
-    if (!currentImageFile || isAnalyzing || isLoading) return;
-    setIsAnalyzing(true);
-    try {
-        const description = await describeImageForPrompt(currentImageFile);
-        setUserPrompt(description);
-    } catch (e) {
-        console.error('Image analysis failed:', e);
-    } finally {
-        setIsAnalyzing(false);
-    }
-  };
-
   const handleRefine = async () => {
     if (!userPrompt.trim() || isRefining) return;
     setIsRefining(true);
-    try {
-      const refined = await refineImagePrompt(userPrompt);
-      setUserPrompt(refined);
-    } catch (e) { console.error(e); } 
+    try { setUserPrompt(await refineImagePrompt(userPrompt, isFastAiEnabled)); } catch (e) {} 
     finally { setIsRefining(false); }
   };
 
-  const isActionDisabled = isLoading || isAnalyzing || (!selectedPresetName && !userPrompt.trim() && !hasImage);
+  const handleSavePreset = async (name: string, desc: string) => {
+      let promptToSave = userPrompt.trim();
+      const newPreset = {
+          id: `vector_${Date.now()}`,
+          name, description: desc,
+          applyPrompt: promptToSave, 
+          genPrompt: promptToSave,
+          recommendedPanel: 'vector_art_panel',
+          timestamp: Date.now(),
+          isCustom: true
+      };
+      await addUserPreset(newPreset);
+  };
+
+  const handleDelete = async (e: React.MouseEvent, id: string) => {
+      e.stopPropagation();
+      if(confirm('Delete this preset?')) await deleteUserPreset(id);
+  };
 
   return (
-    <div className="flex flex-col h-full bg-surface-panel">
-      {/* Header with Visual Polish */}
-      <div className="p-4 border-b border-white/5 bg-surface-panel relative z-10 shrink-0">
+    <div className="flex flex-col h-full bg-transparent overflow-hidden relative">
+      <PresetSaveModal isOpen={isSaveModalOpen} onClose={() => setIsSaveModalOpen(false)} onSave={handleSavePreset} />
+      <div className="absolute inset-0 pointer-events-none z-0" style={{ background: 'radial-gradient(circle at 50% -20%, rgba(0, 255, 157, 0.15) 0%, transparent 70%)' }} />
+
+      <div className="p-5 border-b border-zinc-800 bg-surface-panel/90 shrink-0 relative z-10 backdrop-blur-md">
         <div className="flex items-center gap-3">
-             <div className="w-8 h-8 rounded bg-gradient-to-br from-green-500 to-emerald-900 flex items-center justify-center shadow-[0_0_10px_rgba(34,197,94,0.4)]">
-                 <VectorIcon className="w-5 h-5 text-white" />
+             <div className="w-8 h-8 rounded-sm bg-vector/20 border border-vector/50 flex items-center justify-center shadow-[0_0_20px_rgba(0,255,157,0.4)]">
+                 <VectorIcon className="w-5 h-5 text-vector" />
              </div>
              <div>
-                 <h3 className="text-lg font-black italic tracking-tighter text-white uppercase leading-none font-display">
-                   Vector Foundry
-                 </h3>
-                 <p className="text-[10px] text-green-500 font-mono tracking-widest uppercase">
-                   Core SVG Transformation
-                 </p>
+                 <h3 className="text-lg font-black italic tracking-tighter text-white uppercase leading-none font-display">Vector Foundry</h3>
+                 <p className="text-[8px] text-vector font-mono tracking-[0.2em] uppercase font-bold drop-shadow-[0_0_5px_rgba(0,255,157,0.5)]">SVG.Synthesizer</p>
              </div>
         </div>
       </div>
 
-      {localError && (
-        <div className="mx-4 mt-4 bg-red-950/40 border border-red-500/50 p-3 rounded flex items-start gap-3 animate-fade-in relative z-20 shrink-0">
-            <AlertIcon className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
-            <div className="flex-1">
-                <p className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-1">Execution Fail</p>
-                <p className="text-xs text-red-200 leading-tight font-mono">{localError}</p>
+      <div className="flex-1 overflow-y-auto p-5 space-y-6 custom-scrollbar relative z-10">
+          {localError && (
+            <div className="bg-red-950/20 border-l-2 border-red-500 p-3 shrink-0">
+                <p className="text-[9px] text-red-500 font-mono uppercase font-black mb-1">Fault</p>
+                <p className="text-[9px] text-red-200 leading-tight font-mono">{localError}</p>
             </div>
-            <button onClick={() => setLocalError(null)} className="text-gray-500 hover:text-white transition-colors">
-                <XIcon className="w-3 h-3" />
-            </button>
-        </div>
-      )}
-
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
-          {/* Status Indicator for AI analysis */}
-          {hasImage && (
-             <div className="flex items-center gap-2 px-2 py-1 bg-green-500/5 border border-green-500/20 rounded-md animate-fade-in">
-                <div className={`w-1.5 h-1.5 rounded-full ${isAnalyzing ? 'bg-orange-500 animate-pulse' : 'bg-green-500'} shadow-[0_0_8px_currentcolor]`}></div>
-                <span className="text-[9px] font-mono text-gray-500 uppercase tracking-widest">
-                    {isAnalyzing ? 'Scanning Content...' : 'Neural Link Active: Ready to Analyze'}
-                </span>
-             </div>
           )}
 
-          {/* Prompt Entry Area with Integrated "Analyze" Widget */}
-          <div className="bg-surface-card border border-surface-border rounded-lg p-3 group focus-within:border-green-500/50 transition-colors relative">
-              <div className="flex justify-between items-center mb-2">
-                  <label className="text-[9px] font-mono text-gray-500 uppercase tracking-wider">Subject Directive</label>
-                  <div className="flex gap-2">
-                    {userPrompt && <button onClick={() => setUserPrompt('')}><XIcon className="w-3 h-3 text-gray-600 hover:text-white" /></button>}
-                    
-                    {/* Integrated Subject Extraction Widget */}
-                    {hasImage && (
-                        <button 
-                            onClick={handleAnalyzeImage} 
-                            disabled={isAnalyzing || isLoading} 
-                            className={`flex items-center gap-1.5 px-2 py-0.5 bg-green-900/20 border border-green-500/30 rounded text-[8px] font-black uppercase text-green-400 hover:bg-green-600 hover:text-white transition-all ${isAnalyzing ? 'animate-pulse' : ''}`}
-                            title="Analyze Image Content"
-                        >
-                            <SparklesIcon className="w-2.5 h-2.5" />
-                            AI Scan
+          <div>
+              <h4 className="panel-label border-vector/50 pl-2">Path Directive</h4>
+              <div className="group border border-zinc-800 bg-black/40 rounded-sm overflow-hidden focus-within:border-vector/60 focus-within:shadow-[0_0_15px_rgba(0,255,157,0.15)] transition-all relative shadow-inner">
+                  <div className="flex justify-between items-center bg-zinc-900/50 px-3 py-2 border-b border-zinc-800/50">
+                      <div className="flex items-center gap-2">
+                          <div className="w-1.5 h-1.5 bg-vector rounded-full animate-pulse shadow-[0_0_5px_rgba(0,255,157,0.8)]" />
+                          <span className="text-[8px] font-mono text-zinc-500 uppercase tracking-widest font-black group-focus-within:text-vector transition-colors">PATH_PAYLOAD</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => setIsSaveModalOpen(true)} disabled={!userPrompt.trim()} className="text-zinc-600 hover:text-vector disabled:opacity-20 transition-colors">
+                            <SaveIcon className="w-3.5 h-3.5" />
                         </button>
-                    )}
-
-                    <button onClick={handleRefine} disabled={!userPrompt.trim() || isRefining} className="text-green-500 disabled:opacity-30">
-                        <SparklesIcon className={`w-3 h-3 ${isRefining ? 'animate-spin' : ''}`} />
-                    </button>
+                        <button onClick={handleRefine} disabled={!userPrompt.trim() || isRefining} className="text-zinc-600 hover:text-vector transition-colors">
+                            <SparklesIcon className={`w-3.5 h-3.5 ${isRefining ? 'animate-spin' : ''}`} />
+                        </button>
+                      </div>
+                  </div>
+                  <textarea 
+                      value={userPrompt}
+                      onChange={(e) => setUserPrompt(e.target.value)}
+                      placeholder={hasImage ? "// Analyze source..." : "// Describe icon..."}
+                      className="w-full bg-transparent p-4 text-xs font-mono text-zinc-300 placeholder-zinc-700 focus:outline-none resize-none h-20 leading-relaxed selection:bg-vector/30"
+                  />
+                  <div className="absolute bottom-0 right-0 p-1 opacity-20 pointer-events-none group-focus-within:opacity-100 transition-opacity duration-300">
+                        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M10 10L0 10L10 0V10Z" fill="var(--color-vector)" />
+                        </svg>
                   </div>
               </div>
-              <textarea 
-                  value={userPrompt}
-                  onChange={(e) => setUserPrompt(e.target.value)}
-                  placeholder={hasImage ? "AI will auto-detect subject if left empty..." : "Describe vector art to generate..."}
-                  className="w-full bg-transparent text-gray-300 text-xs font-mono focus:outline-none resize-none h-16 placeholder-gray-700 leading-relaxed"
-                  disabled={isLoading || isAnalyzing}
-              />
           </div>
 
-          {/* Presets Grid */}
-          <div className="space-y-6 pb-2">
+          <div className="space-y-6 pb-4">
             {Object.entries(presetGroups).map(([groupName, presets]) => (
                 <div key={groupName}>
-                    <h4 className="text-[9px] font-black text-gray-600 uppercase tracking-[0.2em] mb-2 px-1 sticky top-0 bg-surface-panel z-10 py-1">{groupName}</h4>
+                    <h4 className={`panel-label border-vector/50 pl-2 ${groupName === 'USER DNA' ? 'text-vector' : ''}`}>{groupName}</h4>
                     <div className="grid grid-cols-2 gap-2">
                         {(presets as any[]).map(preset => (
                             <button 
-                                key={preset.name} 
-                                onClick={() => setSelectedPresetName(preset.name)}
-                                className={`relative p-3 text-left border rounded-sm transition-all duration-200 group overflow-hidden ${selectedPresetName === preset.name ? 'bg-green-950/30 border-green-500' : 'bg-surface-elevated border-surface-border hover:border-gray-600'}`}
-                                disabled={isLoading || isAnalyzing}
+                                key={preset.name} onClick={() => setSelectedPresetName(preset.name === selectedPresetName ? '' : preset.name)}
+                                className={`preset-card min-h-[4rem] flex flex-col justify-between ${
+                                    selectedPresetName === preset.name 
+                                    ? 'bg-vector/20 text-white border-vector shadow-[0_0_15px_rgba(0,255,157,0.25)] z-10' 
+                                    : 'text-zinc-600 hover:text-zinc-400'
+                                }`}
                             >
-                                <div className="relative z-10">
-                                    <div className={`text-[10px] font-bold uppercase tracking-wide mb-1 ${selectedPresetName === preset.name ? 'text-white' : 'text-gray-400 group-hover:text-gray-200'}`}>{preset.name}</div>
-                                    <p className="text-[8px] text-gray-600 leading-tight uppercase font-mono tracking-tighter">{preset.description}</p>
-                                </div>
-                                {selectedPresetName === preset.name && <div className="absolute top-1 right-1 w-1 h-1 bg-green-500 rounded-full shadow-[0_0_5px_#22c55e]"></div>}
+                                <div className={`text-[9px] font-black uppercase tracking-wider transition-colors ${selectedPresetName === preset.name ? 'text-white' : 'text-zinc-400'}`}>{preset.name}</div>
+                                <p className={`text-[8px] leading-tight font-mono uppercase tracking-tight truncate ${selectedPresetName === preset.name ? 'text-vector' : 'text-zinc-700'}`}>{preset.description}</p>
+                                
+                                {(preset.id || preset.isCustom) && (
+                                     <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                                        <div onClick={(e) => handleDelete(e, preset.id)} className="p-1 text-zinc-500 hover:text-red-500 bg-black/80 rounded"><TrashIcon className="w-3 h-3" /></div>
+                                    </div>
+                                )}
                             </button>
                         ))}
                     </div>
@@ -349,21 +231,14 @@ export const VectorArtPanel: React.FC<VectorArtPanelProps> = ({ onRequest, isLoa
           </div>
       </div>
 
-      {/* Footer / Primary Execute Action */}
-      <div className="p-4 border-t border-surface-hover bg-surface-panel shrink-0">
-          <button
-              onClick={handleApply}
-              disabled={isActionDisabled}
-              className="w-full h-12 relative overflow-hidden group rounded-sm bg-surface-elevated border border-green-900/30 disabled:opacity-50 disabled:cursor-not-allowed shadow-2xl"
-          >
-              <div className="absolute inset-0 bg-gradient-to-r from-green-600 to-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-              {!isActionDisabled && <div className="absolute inset-0 bg-green-900/20"></div>}
-              
-              <div className="relative z-10 flex items-center justify-center gap-2 h-full">
-                  <span className={`font-black italic uppercase tracking-widest text-sm skew-x-[-10deg] ${isActionDisabled ? 'text-gray-500' : 'text-green-400 group-hover:text-white'}`}>
-                      {isAnalyzing ? 'Processing AI Data...' : (hasImage ? 'Execute Vectorization' : 'Synthesize Vector')}
+      <div className="p-5 border-t border-zinc-800 bg-surface-panel/90 shrink-0 relative z-10 backdrop-blur-md">
+          <button onClick={handleApply} disabled={isLoading || isAnalyzing || (!selectedPresetName && !userPrompt.trim() && !hasImage)} className="execute-btn group border-zinc-800 hover:border-vector transition-colors">
+              <div className="execute-btn-glow" style={{ background: 'radial-gradient(circle, #00FF9D 0%, transparent 70%)' }}></div>
+              <div className="relative z-10 flex items-center justify-center gap-3 h-full">
+                  <span className={`font-black italic uppercase tracking-[0.2em] text-xs transition-colors skew-x-[-10deg] ${isLoading || isAnalyzing ? 'text-zinc-500' : 'text-zinc-500 group-hover:text-vector'}`}>
+                      {isAnalyzing ? 'Pathing...' : (isLoading ? 'Processing...' : 'Forge Vector')}
                   </span>
-                  {!isActionDisabled && <VectorIcon className="w-4 h-4 text-green-400 group-hover:text-white skew-x-[-10deg]" />}
+                  <VectorIcon className={`w-4 h-4 transition-colors ${isLoading || isAnalyzing ? 'text-zinc-500' : 'text-zinc-500 group-hover:text-vector'}`} />
               </div>
           </button>
       </div>

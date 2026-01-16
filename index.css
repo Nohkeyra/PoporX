@@ -1,0 +1,113 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-primary: #FF3300;
+  --color-secondary: #00F0FF;
+  --color-surface-deep: #050505;
+  --color-surface-panel: #0f0f11;
+  --color-surface-border: #27272a;
+  --font-display: 'Koulen', sans-serif;
+}
+
+@layer components {
+  .panel-label {
+    @apply text-[9px] font-mono font-black uppercase tracking-[0.2em] text-zinc-500 mb-3 border-l-2 border-zinc-700 pl-2;
+  }
+
+  .preset-card {
+    @apply relative p-3 border border-zinc-800/80 rounded-sm overflow-hidden text-left transition-all duration-300 ease-out bg-zinc-900/40 backdrop-blur-sm;
+    /* Zoom & Lift Effect */
+    @apply hover:scale-[1.02] hover:-translate-y-0.5 hover:shadow-[0_10px_20px_-10px_rgba(0,0,0,0.5)] hover:bg-zinc-900 hover:border-zinc-600 hover:z-10;
+    @apply active:scale-[0.98] active:translate-y-0;
+  }
+  
+  .execute-btn {
+    @apply w-full h-14 relative bg-zinc-950 border border-zinc-800 rounded-sm overflow-hidden transition-all duration-300;
+    @apply hover:shadow-[0_0_20px_rgba(0,0,0,0.5)] active:scale-[0.99];
+  }
+  
+  .execute-btn-glow {
+    @apply absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-20;
+  }
+
+  /* Custom scrollbar for panels */
+  .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+  .custom-scrollbar::-webkit-scrollbar-track { @apply bg-transparent; }
+  .custom-scrollbar::-webkit-scrollbar-thumb { @apply bg-zinc-800 rounded-full hover:bg-zinc-600 transition-colors; }
+}
+
+/* Animations */
+@keyframes scanline {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+
+.animate-scanline {
+  animation: scanline 8s linear infinite;
+}
+
+.asphalt-grid {
+  background-image: 
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+.wildstyle-logo {
+  font-family: var(--font-display);
+  font-weight: 900;
+  letter-spacing: -0.05em;
+}
+
+.wildstyle-logo span {
+  color: var(--color-primary);
+}
+
+.glow-pit {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40%;
+  height: 1px;
+  background: currentColor;
+  box-shadow: 0 0 10px 1px currentColor;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+button:hover .glow-pit {
+  opacity: 1;
+}
+
+/* Specific Tool Colors for Tailwind JIT matching if needed */
+.text-flux { color: #FF3300; }
+.bg-flux { background-color: #FF3300; }
+.border-flux { border-color: #FF3300; }
+
+.text-filter { color: #00F0FF; }
+.bg-filter { background-color: #00F0FF; }
+.border-filter { border-color: #00F0FF; }
+
+.text-vector { color: #00FF9D; }
+.bg-vector { background-color: #00FF9D; }
+.border-vector { border-color: #00FF9D; }
+
+.text-type { color: #FF00FF; }
+.bg-type { background-color: #FF00FF; }
+.border-type { border-color: #FF00FF; }
+
+.text-dna { color: #9D00FF; }
+.bg-dna { background-color: #9D00FF; }
+.border-dna { border-color: #9D00FF; }
+
+.text-adjust { color: #FFD600; }
+.bg-adjust { background-color: #FFD600; }
+.border-adjust { border-color: #FFD600; }
+
+.text-buff { color: #2979FF; }
+.bg-buff { background-color: #2979FF; }
+.border-buff { border-color: #2979FF; }

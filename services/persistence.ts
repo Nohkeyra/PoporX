@@ -1,3 +1,4 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -349,4 +350,18 @@ export const loadUserPresets = async (): Promise<any[]> => {
         console.error("Failed to load presets from IDB", e);
         return [];
     }
+};
+
+export const addUserPreset = async (preset: any): Promise<void> => {
+    const presets = await loadUserPresets();
+    presets.unshift(preset);
+    await saveUserPresets(presets);
+    window.dispatchEvent(new Event('stylePresetsUpdated'));
+};
+
+export const deleteUserPreset = async (id: string): Promise<void> => {
+    const presets = await loadUserPresets();
+    const updated = presets.filter(p => p.id !== id);
+    await saveUserPresets(updated);
+    window.dispatchEvent(new Event('stylePresetsUpdated'));
 };

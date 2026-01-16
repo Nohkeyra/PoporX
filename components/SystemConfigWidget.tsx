@@ -1,3 +1,4 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -35,16 +36,16 @@ export const SystemConfigWidget: React.FC<SystemConfigWidgetProps> = ({
             return parsed;
           }
         }
-        // Default: Top-Left, below header area
+        // Shifted further left and down to avoid "Urban" text
         return { 
-          x: 16, 
-          y: 80 
+          x: 12, 
+          y: 120 
         };
       }
     } catch (e) {
       console.warn('Failed to load widget position:', e);
     }
-    return { x: 16, y: 80 }; 
+    return { x: 12, y: 120 }; 
   });
 
   const [isDragging, setIsDragging] = useState(false);

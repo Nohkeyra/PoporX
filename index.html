@@ -6,12 +6,12 @@
     <link rel="icon" type="image/svg+xml" href="./vite.svg" />
     <link rel="manifest" href="./manifest.json" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <meta name="theme-color" content="#000000" />
+    <meta name="theme-color" content="#E5E5E5" />
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Pixshop">
-    <title>Pixshop - Neural Visual Engine</title>
+    <title>PIXSHOP // Urban Neural Synthesis</title>
     
     <script>
       window.process = window.process || { env: { NODE_ENV: 'production' } };
@@ -19,108 +19,19 @@
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    
-    <!-- Base Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Orbitron:wght@500;900&family=Koulen&display=swap" rel="stylesheet">
-    
-    <!-- Graffiti Font: Rubik Wet Paint for the sloppy tag look -->
-    <link href="https://fonts.googleapis.com/css2?family=Rubik+Wet+Paint&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=Orbitron:wght@400;900&family=Koulen&family=Rubik+Wet+Paint&display=swap" rel="stylesheet">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
       :root {
-        /* Default Dark Theme Palette */
-        --color-primary: #F8130D;
-        --color-secondary: #FB4606;
-        --color-highlight: #FCF721;
-        
-        --color-surface-deep: #030303;
-        --color-surface-panel: #050505;
-        --color-surface-grid: #080808;
-        --color-surface-card: #0A0A0A;
-        --color-surface-elevated: #111111;
-        --color-surface-hover: #1A1A1A;
-        --color-surface-border: #222222;
-        --color-surface-border-light: #333333;
-        
-        --color-text-main: #FFFFFF;
-        --color-text-muted: #9CA3AF;
-
+        --color-primary: #FF5C00;
+        --color-surface-deep: #E5E5E5;
+        --color-surface-panel: #F4F4F5;
+        --color-surface-border: #A1A1AA;
         --font-display: 'Koulen', sans-serif;
-        --font-mono: 'Orbitron', monospace;
-        --font-sans: 'Inter', sans-serif;
-        --font-graffiti: 'Rubik Wet Paint', cursive;
+        --font-marker: 'Rubik Wet Paint', cursive;
       }
-
-      /* Light Theme Overrides */
-      .light-theme {
-        --color-surface-deep: #E5E5E5;      /* Light Grey Background */
-        --color-surface-panel: #F0F0F0;     /* Slightly lighter panel */
-        --color-surface-grid: #F5F5F5;
-        --color-surface-card: #FFFFFF;      /* White cards */
-        --color-surface-elevated: #FFFFFF;  /* White buttons */
-        --color-surface-hover: #EAEAEA;
-        --color-surface-border: #D1D5DB;    /* Gray-300 */
-        --color-surface-border-light: #9CA3AF; /* Gray-400 */
-        
-        --color-text-main: #111827;         /* Gray-900 */
-        --color-text-muted: #4B5563;        /* Gray-600 */
-      }
-
-      body {
-          background-color: var(--color-surface-deep);
-          color: var(--color-text-main);
-          font-family: var(--font-sans);
-          overscroll-behavior: none;
-          overflow: hidden;
-          position: fixed;
-          width: 100%;
-          height: 100dvh;
-          -webkit-font-smoothing: antialiased;
-          transition: background-color 0.3s ease, color 0.3s ease;
-      }
-
-      /* UTILITY OVERRIDES FOR LIGHT THEME COMPATIBILITY */
-      /* This allows existing components using text-white to adapt without rewriting them all */
-      .light-theme .text-white { color: #111827 !important; }
-      .light-theme .text-gray-300 { color: #4B5563 !important; } 
-      .light-theme .text-gray-400 { color: #6B7280 !important; }
-      .light-theme .text-gray-500 { color: #6B7280 !important; }
-      .light-theme .border-white\/5 { border-color: rgba(0,0,0,0.05) !important; }
-      .light-theme .border-white\/10 { border-color: rgba(0,0,0,0.1) !important; }
-      .light-theme .bg-black { background-color: var(--color-surface-deep) !important; }
-      .light-theme .bg-black\/50 { background-color: rgba(255,255,255,0.5) !important; }
-      .light-theme .bg-black\/80 { background-color: rgba(255,255,255,0.8) !important; }
-      
-      .no-scrollbar::-webkit-scrollbar { display: none; }
-      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-
-      .cyber-grid {
-          background-image: 
-              linear-gradient(rgba(248, 19, 13, 0.05) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(248, 19, 13, 0.05) 1px, transparent 1px);
-          background-size: 40px 40px;
-          pointer-events: none;
-      }
-
-      * { -webkit-tap-highlight-color: transparent; }
-
-      input, textarea, select {
-        font-size: 16px !important; 
-      }
-
-      .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
-      .custom-scrollbar::-webkit-scrollbar-track { background: var(--color-surface-panel); }
-      .custom-scrollbar::-webkit-scrollbar-thumb { background: var(--color-surface-border); border-radius: 10px; }
-
-      .btn-sakuga {
-        font-family: var(--font-display);
-        transform: skew(-10deg);
-        transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-        position: relative;
-        overflow: hidden;
-        border-width: 2px;
-      }
+      /* Fallback styles are in index.css */
     </style>
   <script type="importmap">
 {
@@ -136,6 +47,74 @@
     "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2"
   }
 }
+</script>
+<script>
+ (function() {
+    // 1. DYNAMIC VIEWPORT ENFORCEMENT
+    // Forces the app to behave like a native mobile app (no pinch-zoom, exact fit)
+    var meta = document.querySelector('meta[name="viewport"]');
+    var content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
+    if (!meta) {
+        meta = document.createElement('meta');
+        meta.name = 'viewport';
+        document.head.appendChild(meta);
+    }
+    meta.setAttribute('content', content);
+
+    // 2. INJECT PERFORMANCE CSS
+    // We inject CSS via JS to ensure it overrides any framework defaults
+    var css = `
+        /* Force Hardware Acceleration on the Root React Container */
+        #root, .app-container {
+            transform: translate3d(0, 0, 0);
+            -webkit-transform: translate3d(0, 0, 0);
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+            perspective: 1000px;
+        }
+
+        /* Native-like Scrolling */
+        html, body {
+            height: 100%;
+            width: 100%;
+            overflow-x: hidden; /* Prevent horizontal sway */
+            -webkit-overflow-scrolling: touch; /* Momentum scrolling */
+            background-color: #050505 !important; /* Match your app theme (Surface Deep) */
+            overscroll-behavior-y: none; /* Disables pull-to-refresh effect which looks buggy in PWAs */
+        }
+
+        /* Touch Optimization */
+        * {
+            -webkit-tap-highlight-color: transparent; /* Removes blue tap box */
+            touch-action: manipulation; /* Improves click response */
+        }
+
+        /* Optimize Images */
+        img {
+            -webkit-user-drag: none; /* Prevent dragging images */
+        }
+    `;
+
+    var head = document.head || document.getElementsByTagName('head')[0];
+    var style = document.createElement('style');
+    style.type = 'text/css';
+    if (style.styleSheet) {
+        style.styleSheet.cssText = css;
+    } else {
+        style.appendChild(document.createTextNode(css));
+    }
+    head.appendChild(style);
+
+    // 3. REACT HYDRATION FIX
+    // Ensures the root element takes full height immediately to prevent layout shifts
+    document.addEventListener('DOMContentLoaded', function() {
+        var root = document.getElementById('root');
+        if(root) {
+            root.style.height = '100%';
+            root.style.overflow = 'hidden';
+        }
+    });
+})();
 </script>
 </head>
   <body>

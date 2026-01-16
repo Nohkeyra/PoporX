@@ -1,3 +1,4 @@
+
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -20,7 +21,6 @@ export const ZoomPanViewer: React.FC<ZoomPanViewerProps> = ({ src, className, ch
     const containerRef = useRef<HTMLDivElement>(null);
     const scaleRef = useRef(scale);
 
-    // Sync ref with state
     useEffect(() => {
         scaleRef.current = scale;
     }, [scale]);
@@ -30,13 +30,25 @@ export const ZoomPanViewer: React.FC<ZoomPanViewerProps> = ({ src, className, ch
         setPosition({ x: 0, y: 0 });
     }, []);
 
-    // Reset view when the image source changes
     useEffect(() => {
         resetView();
     }, [src, resetView]);
 
+    // Recenter/Refit on container resize
+    useEffect(() => {
+        if (!containerRef.current) return;
+        const resizeObserver = new ResizeObserver(() => {
+            if (scaleRef.current === 1) {
+                // If we are at 1x (fit mode), stay in fit mode (center) even if size changes
+                resetView();
+            }
+        });
+        resizeObserver.observe(containerRef.current);
+        return () => resizeObserver.disconnect();
+    }, [resetView]);
+
     const handleMouseDown = (e: React.MouseEvent) => {
-        if (scale === 1) return;
+        if (scaleRef.current === 1) return;
         setIsDragging(true);
         dragStart.current = { x: e.clientX - position.x, y: e.clientY - position.y };
     };
@@ -52,7 +64,7 @@ export const ZoomPanViewer: React.FC<ZoomPanViewerProps> = ({ src, className, ch
     const handleMouseUp = () => setIsDragging(false);
 
     const handleTouchStart = (e: React.TouchEvent) => {
-        if (e.touches.length === 1 && scale > 1) {
+        if (e.touches.length === 1 && scaleRef.current > 1) {
             setIsDragging(true);
             const touch = e.touches[0];
             dragStart.current = { x: touch.clientX - position.x, y: touch.clientY - position.y };
@@ -70,29 +82,26 @@ export const ZoomPanViewer: React.FC<ZoomPanViewerProps> = ({ src, className, ch
 
     useEffect(() => {
         const container = containerRef.current;
+        if (!container) return;
+
         const onWheel = (e: WheelEvent) => {
-            if (e.ctrlKey || e.metaKey) {
+            if (e.ctrlKey || e.metaKey || Math.abs(e.deltaY) < 100) {
                 e.preventDefault();
-                const delta = -e.deltaY * 0.01;
-                const currentScale = scaleRef.current;
-                const newScale = Math.min(Math.max(1, currentScale + delta), 10);
+                const delta = -e.deltaY * 0.005;
+                const newScale = Math.min(Math.max(1, scaleRef.current + delta), 8);
                 setScale(newScale);
                 if (newScale === 1) setPosition({ x: 0, y: 0 });
             }
         };
 
-        if (container) {
-            container.addEventListener('wheel', onWheel, { passive: false });
-        }
-        return () => {
-            if (container) container.removeEventListener('wheel', onWheel);
-        };
+        container.addEventListener('wheel', onWheel, { passive: false });
+        return () => container.removeEventListener('wheel', onWheel);
     }, []);
 
     return (
         <div 
             ref={containerRef}
-            className={`relative w-full h-full overflow-hidden bg-surface-deep flex items-center justify-center touch-none ${className || ''}`}
+            className={`relative w-full h-full overflow-hidden bg-surface-deep flex items-center justify-center touch-none select-none ${className || ''}`}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
@@ -101,46 +110,39 @@ export const ZoomPanViewer: React.FC<ZoomPanViewerProps> = ({ src, className, ch
             onTouchMove={handleTouchMove}
             onTouchEnd={handleMouseUp}
         >
-            {/* Viewport Action HUD */}
-            <div className="absolute top-4 right-4 z-20 flex flex-col gap-2">
+            <div className="absolute top-4 right-4 z-20 pointer-events-auto">
                 <button 
                     onClick={resetView}
-                    className="p-2.5 bg-black/60 backdrop-blur-xl border border-white/10 rounded-full text-white hover:bg-white/10 transition-all active:scale-90 shadow-2xl"
+                    className="p-3 bg-black/40 backdrop-blur-xl border border-white/10 rounded-full text-white hover:bg-white/10 transition-all active:scale-90 shadow-2xl"
                     title="Reset View"
                 >
                     <Maximize2 size={18} />
                 </button>
             </div>
 
-            {/* Content Core: Centered and strictly contained */}
             <div 
-                className="relative flex items-center justify-center transition-transform duration-75 ease-out select-none"
+                className="relative flex items-center justify-center transform-gpu"
                 style={{
-                    transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
+                    transform: `translate3d(${position.x}px, ${position.y}px, 0) scale3d(${scale}, ${scale}, 1)`,
                     cursor: scale > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default',
                     width: '100%',
-                    height: '100%'
+                    height: '100%',
+                    transition: isDragging ? 'none' : 'transform 0.15s cubic-bezier(0.2, 0, 0, 1)'
                 }}
             >
-                <div className="relative max-w-full max-h-full flex items-center justify-center">
+                <div className="relative max-w-full max-h-full flex items-center justify-center pointer-events-none">
                     <img 
                         src={src} 
                         alt="Neural Preview" 
-                        className="max-w-full max-h-full object-contain shadow-[0_0_50px_rgba(0,0,0,0.5)] pointer-events-auto"
-                        draggable={true}
-                        style={{
-                            imageRendering: 'auto',
-                            display: 'block'
-                        }}
+                        className="max-w-[95%] max-h-[95%] object-contain shadow-2xl"
+                        style={{ imageRendering: 'auto' }}
                     />
-                    
-                    {/* Synchronized Children (e.g. Inpaint mask overlay) */}
-                    {children && (
-                        <div className="absolute inset-0 w-full h-full pointer-events-none">
-                            {children}
-                        </div>
-                    )}
+                    {children && <div className="absolute inset-0">{children}</div>}
                 </div>
+            </div>
+            
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 bg-black/50 backdrop-blur-md border border-white/5 px-3 py-1 rounded-full text-[9px] font-mono text-gray-500 uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">
+                Scale: {scale.toFixed(1)}x
             </div>
         </div>
     );
