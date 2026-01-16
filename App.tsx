@@ -46,6 +46,7 @@ export type GenerationRequest = {
     aspectRatio?: string;
     isChaos?: boolean;
     batchSize?: number;
+    batchIndex?: number;
     maskBase64?: string;
     systemInstructionOverride?: string;
     negativePrompt?: string; 
@@ -90,8 +91,11 @@ export const App: React.FC = () => {
             const url = URL.createObjectURL(currentItem.content);
             setCurrentMediaUrl(url);
             return () => URL.revokeObjectURL(url);
+        } else if (currentItem && typeof currentMediaUrl === 'string') {
+            // Keep using the string URL if it's already a string content
+            setCurrentMediaUrl(currentItem.content as string);
         } else if (currentItem && typeof currentItem.content === 'string') {
-            setCurrentMediaUrl(currentItem.content);
+             setCurrentMediaUrl(currentItem.content);
         } else {
             setCurrentMediaUrl(null);
         }
@@ -126,10 +130,10 @@ export const App: React.FC = () => {
     const handleDownload = useCallback(async () => {
         if (!currentMediaUrl) return;
         setIsLoading(true);
-        setViewerInstruction("PREPARING IMAGE FOR EXPORT...");
+        setViewerInstruction("INITIATING APK BYPASS SAVE...");
 
         try {
-            let baseName = "pixshop-creation";
+            let baseName = "pixshop_export";
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
             
             if (currentImageFile?.name) {
@@ -137,8 +141,6 @@ export const App: React.FC = () => {
                 baseName = lastDotIndex !== -1 
                     ? currentImageFile.name.substring(0, lastDotIndex) 
                     : currentImageFile.name;
-            } else {
-                baseName = `pixshop-art-${timestamp}`;
             }
 
             let blob: Blob;
@@ -149,86 +151,65 @@ export const App: React.FC = () => {
                 blob = await response.blob();
             }
 
-            if (!blob || blob.size === 0) throw new Error("Image data is corrupted.");
+            if (!blob || blob.size === 0) throw new Error("Image buffer null.");
 
-            const mimeType = blob.type;
-            let extension = 'png';
-            if (mimeType.includes('jpeg') || mimeType.includes('jpg')) extension = 'jpg';
-            else if (mimeType.includes('webp')) extension = 'webp';
-
-            const filename = `${baseName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.${extension}`;
-
-            // 1. Try File System Access API (Best for "Access File Manager" request)
-            // Supported on modern Desktop browsers
-            if ('showSaveFilePicker' in window) {
-                try {
-                    const handle = await (window as any).showSaveFilePicker({
-                        suggestedName: filename,
-                        types: [{
-                            description: 'Neural Image Output',
-                            accept: { [mimeType]: ['.' + extension] },
-                        }],
-                    });
-                    const writable = await handle.createWritable();
-                    await writable.write(blob);
-                    await writable.close();
-                    setViewerInstruction("IMAGE SAVED TO DEVICE STORAGE");
-                    setTimeout(() => setViewerInstruction(null), 2000);
-                    setIsLoading(false);
-                    return;
-                } catch (pickerErr: any) {
-                    // AbortError means user cancelled, we should just stop
-                    if (pickerErr.name === 'AbortError') {
-                        setIsLoading(false);
-                        setViewerInstruction(null);
-                        return;
-                    }
-                    console.warn("SaveFilePicker failed, trying sharing...", pickerErr);
-                }
-            }
-
+            const mimeType = blob.type || 'image/png';
+            const extension = mimeType.includes('jpeg') ? 'jpg' : (mimeType.includes('webp') ? 'webp' : 'png');
+            const filename = `${baseName}_${timestamp}.${extension}`;
             const file = new File([blob], filename, { type: mimeType });
 
-            // 2. Try Native Share (Best for Mobile Gallery/File access)
-            let shareSuccess = false;
+            // STRATEGY 1: NATIVE SHARE (Best for most APKs)
             if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
                 try {
                     await navigator.share({
                         files: [file],
-                        title: 'Pixshop Export',
-                        text: 'Generated with AI'
+                        title: 'Pixshop Core Save',
+                        text: 'Visual synthesized by Gemini AI'
                     });
-                    shareSuccess = true;
-                } catch (shareError) {
-                    console.warn("Native share cancelled or failed:", shareError);
+                    setIsLoading(false);
+                    setViewerInstruction(null);
+                    return; 
+                } catch (shareErr) {
+                    console.warn("Share intent refused by system shell.", shareErr);
                 }
             }
 
-            // 3. Fallback to Anchor Download (Standard desktop/mobile file system save)
-            if (!shareSuccess) {
-                const url = URL.createObjectURL(blob);
+            // STRATEGY 2: CLEAN BASE64 ANCHOR (Most compatible for WebViews)
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                const base64data = reader.result as string;
                 const link = document.createElement('a');
-                link.href = url;
+                link.href = base64data;
                 link.download = filename;
-                link.target = "_blank"; 
+                link.target = '_blank'; // Important for some mobile browsers
                 document.body.appendChild(link);
                 link.click();
-                
+                setTimeout(() => document.body.removeChild(link), 1000);
+            };
+            reader.readAsDataURL(blob);
+
+            setViewerInstruction("SAVE TRIGGERED. CHECK NOTIFICATIONS.");
+            setTimeout(() => setViewerInstruction(null), 3000);
+
+            // STRATEGY 3: APK FALLBACK (Open image in new tab for manual save)
+            // If the user sees "Permission not granted", this is usually the only way.
+            if (navigator.userAgent.match(/Android/i)) {
                 setTimeout(() => {
-                    document.body.removeChild(link);
-                    URL.revokeObjectURL(url);
-                }, 2000);
+                    const confirmManual = window.confirm("If download didn't start, would you like to open the image in a new tab for manual 'Long-Press' save?");
+                    if (confirmManual) {
+                        const newTab = window.open();
+                        if (newTab) {
+                            newTab.document.body.innerHTML = `<img src="${currentMediaUrl}" style="width:100%; height:auto;" /><p style="color:white; background:black; padding:20px; text-align:center; font-family:sans-serif;">Long-press the image above and select 'Download Image' or 'Save Image'.</p>`;
+                        }
+                    }
+                }, 4000);
             }
 
         } catch (e: any) {
-            console.error("Export failure:", e);
-            setError(`Export error: ${e.message || String(e)}. Try long-pressing the image to save manually.`);
-            if (currentMediaUrl) {
-                 window.open(currentMediaUrl, '_blank');
-            }
+            console.error("Critical Export Failure:", e);
+            setError(`Permission Lock: ${e.message || 'System blocked file write'}. Suggestion: Screenshot the preview.`);
         } finally {
             setIsLoading(false);
-            setViewerInstruction(null);
         }
     }, [currentMediaUrl, currentImageFile, setIsLoading]);
 
@@ -268,7 +249,7 @@ export const App: React.FC = () => {
     }, []);
 
     const handleHardFix = useCallback(async () => {
-        if(window.confirm("Perform hard factory reset? All local visual history will be purged.")) {
+        if(window.confirm("Perform system reset? Local ledger will be purged.")) {
             await nukeDatabase();
             window.location.reload();
         }
@@ -285,7 +266,7 @@ export const App: React.FC = () => {
                     }
                 }
             } catch (err) {
-                console.warn("API Key bridge warning:", err);
+                console.warn("Auth Bridge Warning:", err);
             }
         }
 
@@ -312,8 +293,7 @@ export const App: React.FC = () => {
                         if (req.maskBase64 && req.maskBase64.length > 0) {
                              result = await geminiService.generateInpaintedImage(source, req.maskBase64, req.prompt!, { systemInstructionOverride: req.systemInstructionOverride, negativePrompt: req.negativePrompt, denoisingInstruction: req.denoisingInstruction }, isFastAiEnabled);
                         } else {
-                             console.warn("Auto-Inpaint mode active.");
-                             const fallbackPrompt = `${req.prompt} (Process the entire image context)`;
+                             const fallbackPrompt = `${req.prompt} (Process context and geometry)`;
                              result = await geminiService.generateFilteredImage(source, fallbackPrompt, { aspectRatio: req.aspectRatio, systemInstructionOverride: PROTOCOLS.IMAGE_TRANSFORMER, negativePrompt: req.negativePrompt }, isFastAiEnabled);
                         }
                     }
@@ -334,7 +314,7 @@ export const App: React.FC = () => {
 
             if (result) {
                  const blob = dataUrlToBlob(result);
-                 const file = new File([blob], `generated-${Date.now()}.png`, { type: 'image/png' });
+                 const file = new File([blob], `gen_${Date.now()}.png`, { type: 'image/png' });
                  
                  const newItem: HistoryItem = {
                      content: file,
@@ -348,31 +328,19 @@ export const App: React.FC = () => {
             }
 
         } catch (e: any) {
-            console.error("Neural Execution Failure:", e);
-            let msg = "Generation failed. Please try again.";
+            console.error("Neural Stack Trace:", e);
+            let msg = "Processing error. Try adjusting prompt complexity.";
             
-            // Extreme stringification to avoid [object Object]
-            if (typeof e === 'string') {
-                msg = e;
-            } else if (e instanceof Error) {
-                msg = e.message;
-            } else if (typeof e === 'object' && e !== null) {
+            if (typeof e === 'string') msg = e;
+            else if (e instanceof Error) msg = e.message;
+            else if (typeof e === 'object' && e !== null) {
                 try {
-                    const stringified = JSON.stringify(e);
-                    if (stringified !== '{}') {
-                        msg = e.error?.message || e.message || stringified;
-                    } else {
-                        msg = String(e);
-                    }
-                } catch {
-                    msg = "An opaque error occurred in the neural engine.";
-                }
+                    const str = JSON.stringify(e);
+                    msg = (str !== '{}') ? (e.error?.message || e.message || str) : String(e);
+                } catch { msg = "System Opaque Error."; }
             }
             
-            if (msg.includes("[object Object]")) {
-                msg = "The API returned an unexpected object format. This often relates to transient network issues.";
-            }
-            
+            if (msg.includes("[object Object]")) msg = "Neural response format mismatched. Re-initiating handshake...";
             setError(msg);
         } finally {
             setIsLoading(false);
@@ -411,17 +379,17 @@ export const App: React.FC = () => {
                             {isLoading && (
                                 <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
                                     <Spinner />
-                                    {viewerInstruction && <div className="absolute bottom-10 text-white font-mono text-xs animate-pulse tracking-widest">{viewerInstruction}</div>}
+                                    {viewerInstruction && <div className="absolute bottom-10 text-white font-mono text-xs animate-pulse tracking-[0.2em]">{viewerInstruction}</div>}
                                 </div>
                             )}
                             
                             {error && (
-                                <div className="absolute top-4 left-4 right-4 z-40 bg-red-900/90 border border-red-500 text-white p-3 rounded shadow-2xl flex justify-between items-start animate-fade-in backdrop-blur-xl">
+                                <div className="absolute top-4 left-4 right-4 z-40 bg-red-900/95 border border-red-500 text-white p-4 rounded-sm shadow-[0_10px_40px_rgba(0,0,0,0.8)] flex justify-between items-start animate-fade-in backdrop-blur-2xl">
                                     <div className="flex-1 mr-4">
-                                        <p className="text-[10px] font-black uppercase mb-1 text-red-300">System Error</p>
-                                        <p className="text-xs font-mono leading-relaxed">{error}</p>
+                                        <p className="text-[10px] font-black uppercase mb-1 text-red-200">Neural Core Exception</p>
+                                        <p className="text-xs font-mono leading-tight">{error}</p>
                                     </div>
-                                    <button onClick={() => setError(null)} className="mt-1 p-1 hover:bg-white/10 rounded"><XIcon className="w-4 h-4" /></button>
+                                    <button onClick={() => setError(null)} className="mt-0.5 p-1 hover:bg-white/10 rounded"><XIcon className="w-4 h-4" /></button>
                                 </div>
                             )}
 
@@ -440,20 +408,20 @@ export const App: React.FC = () => {
                             <div className="bg-surface-panel border-t border-surface-border p-2 flex justify-between items-center shrink-0 z-20">
                                 <div className="flex gap-2">
                                     <button
-                                        onClick={() => { if(window.confirm("Reset session and clear work surface?")) handleClearSession(); }}
-                                        className="p-2 text-gray-400 hover:text-red-500 bg-surface-elevated rounded-sm border border-surface-border hover:border-red-500/50 transition-all"
-                                        title="Clear All"
+                                        onClick={() => { if(window.confirm("Purge active session buffers?")) handleClearSession(); }}
+                                        className="p-2 text-gray-500 hover:text-red-500 bg-surface-elevated rounded-sm border border-surface-border hover:border-red-500/50 transition-all"
+                                        title="System Flush"
                                     >
                                         <TrashIcon className="w-4 h-4" />
                                     </button>
                                     
                                     <button
                                         onClick={() => fileInputRef.current?.click()}
-                                        className="px-3 py-1 bg-blue-600/20 border border-blue-500/50 rounded flex items-center gap-2 group hover:bg-blue-600 hover:text-white transition-all shadow-sm"
-                                        title="New Upload"
+                                        className="px-3 py-1 bg-blue-600/20 border border-blue-500/40 rounded flex items-center gap-2 group hover:bg-blue-600 hover:text-white transition-all"
+                                        title="Import Visual"
                                     >
                                         <PlusIcon className="w-4 h-4 text-blue-400 group-hover:text-white" />
-                                        <span className="text-[10px] font-black uppercase tracking-wider hidden sm:inline">Upload</span>
+                                        <span className="text-[10px] font-black uppercase tracking-wider hidden sm:inline">Import</span>
                                         <input type="file" ref={fileInputRef} onChange={(e) => {
                                             const file = e.target.files?.[0];
                                             if (file) handleImageUpload(file);
@@ -463,8 +431,8 @@ export const App: React.FC = () => {
 
                                     <button 
                                         onClick={() => setShowHistoryGrid(true)} 
-                                        className="p-2 text-gray-400 hover:text-white bg-surface-elevated rounded-sm border border-surface-border hover:border-surface-border-light transition-all"
-                                        title="Archive Ledger"
+                                        className="p-2 text-gray-500 hover:text-white bg-surface-elevated rounded-sm border border-surface-border hover:border-surface-border-light transition-all"
+                                        title="Visual Ledger"
                                     >
                                         <HistoryIcon className="w-4 h-4" />
                                     </button>
@@ -474,16 +442,16 @@ export const App: React.FC = () => {
                                     <button 
                                         onClick={() => setHistoryIndex(Math.max(0, historyIndex - 1))} 
                                         disabled={historyIndex <= 0}
-                                        className="p-2 text-gray-400 hover:text-white disabled:opacity-30 transition-colors"
-                                        title="Undo"
+                                        className="p-2 text-gray-500 hover:text-white disabled:opacity-20 transition-colors"
+                                        title="Undo Cycle"
                                     >
                                         <UndoIcon className="w-4 h-4" />
                                     </button>
                                     <button 
                                         onClick={() => setHistoryIndex(Math.min(history.length - 1, historyIndex + 1))} 
                                         disabled={historyIndex >= history.length - 1}
-                                        className="p-2 text-gray-400 hover:text-white disabled:opacity-30 transition-colors"
-                                        title="Redo"
+                                        className="p-2 text-gray-500 hover:text-white disabled:opacity-20 transition-colors"
+                                        title="Redo Cycle"
                                     >
                                         <RedoIcon className="w-4 h-4" />
                                     </button>
@@ -493,8 +461,8 @@ export const App: React.FC = () => {
                                      {originalImageUrl && currentMediaUrl && (
                                          <button 
                                             onClick={() => setIsComparing(!isComparing)} 
-                                            className={`p-2 rounded-sm border transition-all ${isComparing ? 'bg-red-900/30 text-red-500 border-red-500' : 'bg-surface-elevated text-gray-400 border-surface-border hover:text-white'}`}
-                                            title="Compare with Seed"
+                                            className={`p-2 rounded-sm border transition-all ${isComparing ? 'bg-red-900/40 text-red-500 border-red-500 shadow-[0_0_10px_#ef4444]' : 'bg-surface-elevated text-gray-500 border-surface-border hover:text-white'}`}
+                                            title="Compare Source"
                                          >
                                              <CompareIcon className="w-4 h-4" />
                                          </button>
@@ -502,8 +470,8 @@ export const App: React.FC = () => {
                                      <button 
                                         onClick={handleDownload} 
                                         disabled={!currentMediaUrl}
-                                        className="p-2 bg-surface-elevated text-gray-400 hover:text-green-400 border border-surface-border hover:border-green-500/50 rounded-sm transition-all"
-                                        title="Export to Device"
+                                        className="p-2 bg-surface-elevated text-gray-500 hover:text-green-400 border border-surface-border hover:border-green-500/50 rounded-sm transition-all"
+                                        title="Export/Share"
                                      >
                                         <DownloadIcon className="w-4 h-4" />
                                      </button>
@@ -525,10 +493,10 @@ export const App: React.FC = () => {
                                     <button
                                         key={tab.id}
                                         onClick={() => handleTabSwitch(tab.id as ActiveTab)}
-                                        className={`flex-1 min-w-[3.8rem] py-2 flex flex-col justify-center items-center border-b-2 transition-all ${activeTab === tab.id ? `border-${tab.color.split('-')[1]}-500 bg-white/5` : 'border-transparent hover:bg-white/5 text-gray-600'}`}
+                                        className={`flex-1 min-w-[3.8rem] py-2 flex flex-col justify-center items-center border-b-2 transition-all ${activeTab === tab.id ? `border-${tab.color.split('-')[1]}-500 bg-white/5` : 'border-transparent hover:bg-white/5 text-gray-700'}`}
                                     >
-                                        <tab.icon className={`w-4 h-4 mb-1 ${activeTab === tab.id ? tab.color : 'text-gray-500'}`} />
-                                        <span className={`text-[8px] font-black tracking-tighter ${activeTab === tab.id ? 'text-white' : 'text-gray-600'}`}>{tab.label}</span>
+                                        <tab.icon className={`w-4 h-4 mb-1 ${activeTab === tab.id ? tab.color : 'text-gray-600'}`} />
+                                        <span className={`text-[8px] font-black tracking-tighter ${activeTab === tab.id ? 'text-white' : 'text-gray-700'}`}>{tab.label}</span>
                                     </button>
                                 ))}
                             </div>
@@ -559,7 +527,7 @@ export const App: React.FC = () => {
                                 {activeTab === 'filters' && (
                                     <FilterPanel 
                                         onRequest={handleGenerationRequest} 
-                                        isLoading={isLoading}
+                                        isLoading={isLoading} 
                                         setViewerInstruction={setViewerInstruction}
                                         isFastAiEnabled={isFastAiEnabled}
                                         hasImage={!!currentMediaUrl}
@@ -570,7 +538,7 @@ export const App: React.FC = () => {
                                 {activeTab === 'adjust' && (
                                     <AdjustmentPanel 
                                         onRequest={handleGenerationRequest} 
-                                        isLoading={isLoading}
+                                        isLoading={isLoading} 
                                         setViewerInstruction={setViewerInstruction}
                                         isFastAiEnabled={isFastAiEnabled}
                                     />
@@ -588,7 +556,7 @@ export const App: React.FC = () => {
                                 {activeTab === 'vector' && (
                                     <VectorArtPanel 
                                         onRequest={handleGenerationRequest} 
-                                        isLoading={isLoading}
+                                        isLoading={isLoading} 
                                         hasImage={!!currentMediaUrl}
                                         currentImageFile={currentImageFile}
                                         setViewerInstruction={setViewerInstruction}
@@ -598,7 +566,7 @@ export const App: React.FC = () => {
                                 {activeTab === 'typography' && (
                                     <TypographicPanel 
                                         onRequest={handleGenerationRequest} 
-                                        isLoading={isLoading}
+                                        isLoading={isLoading} 
                                         hasImage={!!currentMediaUrl}
                                         setViewerInstruction={setViewerInstruction}
                                         initialPrompt={pendingPrompt || undefined}
