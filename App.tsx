@@ -17,7 +17,7 @@ import { InpaintPanel } from './components/InpaintPanel';
 import { StyleExtractorPanel } from './components/StyleExtractorPanel';
 import { CompareSlider } from './components/CompareSlider';
 import { ZoomPanViewer } from './components/ZoomPanViewer';
-import { UndoIcon, RedoIcon, CompareIcon, XIcon, DownloadIcon, HistoryIcon, BoltIcon, PaletteIcon, SunIcon, EraserIcon, TypeIcon, VectorIcon, StyleExtractorIcon, TrashIcon, PlusIcon } from './components/icons';
+import { UndoIcon, RedoIcon, CompareIcon, XIcon, DownloadIcon, HistoryIcon, BoltIcon, PaletteIcon, SunIcon, EraserIcon, TypeIcon, VectorIcon, StyleExtractorIcon, TrashIcon, PlusIcon, UploadIcon } from './components/icons';
 import { SystemConfigWidget } from './components/SystemConfigWidget';
 import { ImageUploadPlaceholder } from './components/ImageUploadPlaceholder';
 import { StartScreen } from './components/StartScreen';
@@ -312,13 +312,6 @@ export const App: React.FC = () => {
 
     return (
         <div className={`h-full flex flex-col bg-surface-deep text-white ${theme === 'light' ? 'light-theme' : ''}`}>
-            {/* Widgets - Globally Positioned Over everything */}
-            <SystemConfigWidget 
-                onSoftFix={handleSoftFix} 
-                onHardFix={handleHardFix} 
-                onOpenDebugger={() => setShowDebugger(true)} 
-            />
-            <FastAiWidget />
             
             {/* Overlays */}
             {showDebugger && <DebugConsole onClose={() => setShowDebugger(false)} />}
@@ -389,13 +382,14 @@ export const App: React.FC = () => {
                                         <TrashIcon className="w-4 h-4" />
                                     </button>
                                     
-                                    {/* Explicit Upload Button */}
+                                    {/* Prominent Upload Button */}
                                     <button
                                         onClick={() => fileInputRef.current?.click()}
-                                        className="p-2 text-gray-400 hover:text-blue-500 bg-surface-elevated rounded-sm border border-surface-border hover:border-blue-500/50 transition-all"
+                                        className="px-3 py-1 bg-blue-600/20 border border-blue-500/50 rounded flex items-center gap-2 group hover:bg-blue-600 hover:text-white transition-all"
                                         title="New Upload"
                                     >
-                                        <PlusIcon className="w-4 h-4" />
+                                        <PlusIcon className="w-4 h-4 text-blue-400 group-hover:text-white" />
+                                        <span className="text-[10px] font-black uppercase tracking-wider hidden sm:inline">Upload</span>
                                         <input type="file" ref={fileInputRef} onChange={(e) => {
                                             const file = e.target.files?.[0];
                                             if (file) handleImageUpload(file);
@@ -554,6 +548,14 @@ export const App: React.FC = () => {
                     </div>
                 </>
             )}
+
+            {/* Widgets - Globally Positioned Over everything, Rendered Last for top-most stacking */}
+            <SystemConfigWidget 
+                onSoftFix={handleSoftFix} 
+                onHardFix={handleHardFix} 
+                onOpenDebugger={() => setShowDebugger(true)} 
+            />
+            <FastAiWidget />
         </div>
     );
 };

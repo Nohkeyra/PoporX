@@ -5,7 +5,7 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { GenerationRequest } from '../App';
-import { VectorIcon, XIcon, CheckIcon, AlertIcon, SparklesIcon } from './icons';
+import { VectorIcon, XIcon, CheckIcon, AlertIcon, SparklesIcon, EyeIcon } from './icons';
 import { describeImageForPrompt, PROTOCOLS, refineImagePrompt } from '../services/geminiService';
 import { loadUserPresets } from '../services/persistence';
 
@@ -117,12 +117,6 @@ const basePresetGroups: Record<string, VectorPreset[]> = {
       description: '80s neon wireframe aesthetic.',
       applyPrompt: 'Transform into 80s synthwave vector graphics.',
       genPrompt: '80s synthwave vector, neon wireframe, retro futuristic sun, digital grid, cyberpunk vector aesthetic, dark background'
-    },
-    {
-        name: 'Isometric 3D',
-        description: 'Pseudo-3D geometric projection.',
-        applyPrompt: 'Transform into isometric vector illustration.',
-        genPrompt: 'Isometric vector illustration, 3D geometric projection, clean flat colors, soft vector shadows, sim city aesthetic'
     }
   ]
 };
@@ -179,8 +173,9 @@ export const VectorArtPanel: React.FC<VectorArtPanelProps> = ({ onRequest, isLoa
     try {
         let effectiveSubject = userPrompt.trim();
 
+        // Auto-Analysis logic if prompt is empty
         if (!effectiveSubject && hasImage && currentImageFile) {
-            setViewerInstruction("SCANNING SUBJECT DNA...");
+            setViewerInstruction("AI ANALYZING SUBJECT DNA...");
             try {
                 effectiveSubject = await describeImageForPrompt(currentImageFile);
             } catch (err) {
@@ -190,7 +185,7 @@ export const VectorArtPanel: React.FC<VectorArtPanelProps> = ({ onRequest, isLoa
                 setViewerInstruction(null);
             }
         } else if (!effectiveSubject) {
-            effectiveSubject = "a vector graphic";
+            effectiveSubject = "a professional vector graphic";
         }
 
         let fullPrompt = "";
@@ -198,7 +193,7 @@ export const VectorArtPanel: React.FC<VectorArtPanelProps> = ({ onRequest, isLoa
 
         if (selectedPreset) {
             if (hasImage) {
-                 fullPrompt = `${selectedPreset.applyPrompt} The subject is: ${effectiveSubject}. Maintain the vector style strictly.`;
+                 fullPrompt = `${selectedPreset.applyPrompt} The subject is: ${effectiveSubject}. Maintain vector style strictly.`;
                  systemInstructionOverride = PROTOCOLS.IMAGE_TRANSFORMER;
             } else {
                  const genPromptToUse = selectedPreset.genPrompt || selectedPreset.applyPrompt;
@@ -249,10 +244,11 @@ export const VectorArtPanel: React.FC<VectorArtPanelProps> = ({ onRequest, isLoa
     finally { setIsRefining(false); }
   };
 
-  const isActionDisabled = isLoading || isAnalyzing || (!selectedPresetName && !userPrompt.trim());
+  const isActionDisabled = isLoading || isAnalyzing || (!selectedPresetName && !userPrompt.trim() && !hasImage);
 
   return (
     <div className="flex flex-col h-full bg-surface-panel">
+      {/* Header with Visual Polish */}
       <div className="p-4 border-b border-white/5 bg-surface-panel relative z-10 shrink-0">
         <div className="flex items-center gap-3">
              <div className="w-8 h-8 rounded bg-gradient-to-br from-green-500 to-emerald-900 flex items-center justify-center shadow-[0_0_10px_rgba(34,197,94,0.4)]">
@@ -263,7 +259,7 @@ export const VectorArtPanel: React.FC<VectorArtPanelProps> = ({ onRequest, isLoa
                    Vector Foundry
                  </h3>
                  <p className="text-[10px] text-green-500 font-mono tracking-widest uppercase">
-                   SVG & Flat Design Core
+                   Core SVG Transformation
                  </p>
              </div>
         </div>
@@ -283,11 +279,36 @@ export const VectorArtPanel: React.FC<VectorArtPanelProps> = ({ onRequest, isLoa
       )}
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
-          <div className="bg-surface-card border border-surface-border rounded-lg p-3 group focus-within:border-green-500/50 transition-colors">
+          {/* Status Indicator for AI analysis */}
+          {hasImage && (
+             <div className="flex items-center gap-2 px-2 py-1 bg-green-500/5 border border-green-500/20 rounded-md animate-fade-in">
+                <div className={`w-1.5 h-1.5 rounded-full ${isAnalyzing ? 'bg-orange-500 animate-pulse' : 'bg-green-500'} shadow-[0_0_8px_currentcolor]`}></div>
+                <span className="text-[9px] font-mono text-gray-500 uppercase tracking-widest">
+                    {isAnalyzing ? 'Scanning Content...' : 'Neural Link Active: Ready to Analyze'}
+                </span>
+             </div>
+          )}
+
+          {/* Prompt Entry Area with Integrated "Analyze" Widget */}
+          <div className="bg-surface-card border border-surface-border rounded-lg p-3 group focus-within:border-green-500/50 transition-colors relative">
               <div className="flex justify-between items-center mb-2">
                   <label className="text-[9px] font-mono text-gray-500 uppercase tracking-wider">Subject Directive</label>
                   <div className="flex gap-2">
                     {userPrompt && <button onClick={() => setUserPrompt('')}><XIcon className="w-3 h-3 text-gray-600 hover:text-white" /></button>}
+                    
+                    {/* Integrated Subject Extraction Widget */}
+                    {hasImage && (
+                        <button 
+                            onClick={handleAnalyzeImage} 
+                            disabled={isAnalyzing || isLoading} 
+                            className={`flex items-center gap-1.5 px-2 py-0.5 bg-green-900/20 border border-green-500/30 rounded text-[8px] font-black uppercase text-green-400 hover:bg-green-600 hover:text-white transition-all ${isAnalyzing ? 'animate-pulse' : ''}`}
+                            title="Analyze Image Content"
+                        >
+                            <SparklesIcon className="w-2.5 h-2.5" />
+                            AI Scan
+                        </button>
+                    )}
+
                     <button onClick={handleRefine} disabled={!userPrompt.trim() || isRefining} className="text-green-500 disabled:opacity-30">
                         <SparklesIcon className={`w-3 h-3 ${isRefining ? 'animate-spin' : ''}`} />
                     </button>
@@ -296,12 +317,13 @@ export const VectorArtPanel: React.FC<VectorArtPanelProps> = ({ onRequest, isLoa
               <textarea 
                   value={userPrompt}
                   onChange={(e) => setUserPrompt(e.target.value)}
-                  placeholder={hasImage ? "Leaving empty will auto-detect subject..." : "Describe vector art to generate..."}
+                  placeholder={hasImage ? "AI will auto-detect subject if left empty..." : "Describe vector art to generate..."}
                   className="w-full bg-transparent text-gray-300 text-xs font-mono focus:outline-none resize-none h-16 placeholder-gray-700 leading-relaxed"
                   disabled={isLoading || isAnalyzing}
               />
           </div>
 
+          {/* Presets Grid */}
           <div className="space-y-6 pb-2">
             {Object.entries(presetGroups).map(([groupName, presets]) => (
                 <div key={groupName}>
@@ -327,28 +349,19 @@ export const VectorArtPanel: React.FC<VectorArtPanelProps> = ({ onRequest, isLoa
           </div>
       </div>
 
-      <div className="p-4 border-t border-surface-hover bg-surface-panel shrink-0 flex gap-2">
-          {hasImage && (
-              <button
-                  onClick={handleAnalyzeImage}
-                  disabled={isActionDisabled}
-                  className="w-12 h-12 flex items-center justify-center bg-surface-elevated border border-surface-border rounded-sm hover:border-green-500/50 group transition-all disabled:opacity-30"
-                  title="Force Subject Analysis"
-              >
-                  <SparklesIcon className={`w-4 h-4 text-gray-500 group-hover:text-green-500 ${isAnalyzing ? 'animate-pulse' : ''}`} />
-              </button>
-          )}
+      {/* Footer / Primary Execute Action */}
+      <div className="p-4 border-t border-surface-hover bg-surface-panel shrink-0">
           <button
               onClick={handleApply}
               disabled={isActionDisabled}
-              className="flex-1 h-12 relative overflow-hidden group rounded-sm bg-surface-elevated border border-green-900/30 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full h-12 relative overflow-hidden group rounded-sm bg-surface-elevated border border-green-900/30 disabled:opacity-50 disabled:cursor-not-allowed shadow-2xl"
           >
               <div className="absolute inset-0 bg-gradient-to-r from-green-600 to-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
               {!isActionDisabled && <div className="absolute inset-0 bg-green-900/20"></div>}
               
               <div className="relative z-10 flex items-center justify-center gap-2 h-full">
                   <span className={`font-black italic uppercase tracking-widest text-sm skew-x-[-10deg] ${isActionDisabled ? 'text-gray-500' : 'text-green-400 group-hover:text-white'}`}>
-                      {isAnalyzing ? 'Analysing...' : (hasImage ? 'Vectorize' : 'Synthesize')}
+                      {isAnalyzing ? 'Processing AI Data...' : (hasImage ? 'Execute Vectorization' : 'Synthesize Vector')}
                   </span>
                   {!isActionDisabled && <VectorIcon className="w-4 h-4 text-green-400 group-hover:text-white skew-x-[-10deg]" />}
               </div>

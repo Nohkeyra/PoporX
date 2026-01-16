@@ -208,7 +208,7 @@ export const FastAiWidget: React.FC = () => {
             ? 'border-lime-500 shadow-[0_0_20px_rgba(134,239,172,0.5)] bg-lime-900/30' 
             : isDragging
               ? 'border-gray-500 shadow-[0_0_10px_rgba(156,163,175,0.3)] bg-gray-900/20'
-              : 'border-gray-700 hover:border-gray-500'
+              : 'border-gray-700 hover:border-gray-500 animate-pulse'
           }
       `}>
         <BoltIcon 
