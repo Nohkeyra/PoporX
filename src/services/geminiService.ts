@@ -23,6 +23,7 @@ export const PROTOCOLS = {
 // Example function using the client
 export const generateResponse = async (protocolKey: keyof typeof PROTOCOLS, prompt: string) => {
   const genAI = getAiClient();
+  // Try gemini-1.5-flash, fallback to gemini-pro if needed
   const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
   const fullPrompt = `${PROTOCOLS[protocolKey]}\n\nUser Input: ${prompt}`;
   const result = await model.generateContent(fullPrompt);
@@ -34,9 +35,10 @@ export const describeImageForPrompt = async (imageFile: File): Promise<string> =
   try {
     const genAI = getAiClient();
     
-    // Use vision model for image analysis
+    // For vision models, try gemini-1.5-flash (supports vision)
+    // If that fails, try gemini-pro-vision
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-1.5-flash", // Or "gemini-pro-vision" if available
+      model: "gemini-1.5-flash", // This supports vision
       generationConfig: {
         temperature: 0.4,
         maxOutputTokens: 100,
@@ -65,6 +67,53 @@ export const describeImageForPrompt = async (imageFile: File): Promise<string> =
       prompt,
       {
         inlineData: {
+          data: imageBytes,
+          mimeType: imageFile.type
+        }
+      }
+    ]);
+
+    const description = result.response.text().trim();
+    return description;
+    
+  } catch (error) {
+    console.error('Error describing image:', error);
+    // Return a default description if analysis fails
+    return "the primary subject";
+  }
+};
+
+// NEW FUNCTION: Refine image prompt
+export const refineImagePrompt = async (basePrompt: string, imageDescription?: string): Promise<string> => {
+  try {
+    const genAI = getAiClient();
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-1.5-flash",
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 200,
+      }
+    });
+
+    let fullPrompt = `Refine and enhance this image generation prompt:\n\n"${basePrompt}"\n\n`;
+    
+    if (imageDescription) {
+      fullPrompt += `The image contains: ${imageDescription}\n\n`;
+    }
+    
+    fullPrompt += `Make it more descriptive, vivid, and suitable for AI image generation. 
+    Include details about composition, lighting, style, and mood. 
+    Keep the essence but make it more compelling.`;
+
+    const result = await model.generateContent(fullPrompt);
+    return result.response.text().trim();
+    
+  } catch (error) {
+    console.error('Error refining prompt:', error);
+    // Return the original prompt if refinement fails
+    return basePrompt;
+  }
+};        inlineData: {
           data: imageBytes,
           mimeType: imageFile.type
         }
