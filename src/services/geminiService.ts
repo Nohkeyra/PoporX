@@ -28,3 +28,55 @@ export const generateResponse = async (protocolKey: keyof typeof PROTOCOLS, prom
   const result = await model.generateContent(fullPrompt);
   return result.response.text();
 };
+
+// NEW FUNCTION: Describe image for prompt generation
+export const describeImageForPrompt = async (imageFile: File): Promise<string> => {
+  try {
+    const genAI = getAiClient();
+    
+    // Use vision model for image analysis
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-1.5-flash", // Or "gemini-pro-vision" if available
+      generationConfig: {
+        temperature: 0.4,
+        maxOutputTokens: 100,
+      }
+    });
+
+    // Convert image to base64
+    const imageBytes = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        // Remove the data:image/...;base64, prefix
+        const base64 = (reader.result as string).split(',')[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(imageFile);
+    });
+
+    // Create prompt for image description
+    const prompt = `Describe the main subject of this image in 3-5 words. 
+    Focus on what the primary visual element is.
+    Examples: "a street cat", "urban landscape", "portrait person", "graffiti wall".
+    Be concise and descriptive.`;
+
+    const result = await model.generateContent([
+      prompt,
+      {
+        inlineData: {
+          data: imageBytes,
+          mimeType: imageFile.type
+        }
+      }
+    ]);
+
+    const description = result.response.text().trim();
+    return description;
+    
+  } catch (error) {
+    console.error('Error describing image:', error);
+    // Return a default description if analysis fails
+    return "the primary subject";
+  }
+};
