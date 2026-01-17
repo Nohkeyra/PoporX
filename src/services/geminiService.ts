@@ -112,3 +112,60 @@ export const refineImagePrompt = async (basePrompt: string, imageDescription?: s
     return basePrompt;
   }
 };
+// NEW FUNCTION: Extract style from image
+export const extractStyleFromImage = async (imageFile: File): Promise<string> => {
+  try {
+    const genAI = getAiClient();
+    
+    // Use vision model for style analysis
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-1.5-flash",
+      generationConfig: {
+        temperature: 0.5,
+        maxOutputTokens: 300,
+      }
+    });
+
+    // Convert image to base64
+    const imageBytes = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        // Remove the data:image/...;base64, prefix
+        const base64 = (reader.result as string).split(',')[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(imageFile);
+    });
+
+    // Create prompt for style analysis
+    const prompt = `Analyze the visual style of this image and describe it in detail.
+    Include:
+    1. Color palette (dominant colors, color scheme)
+    2. Lighting (type, direction, mood)
+    3. Composition (layout, framing, perspective)
+    4. Artistic style (realistic, abstract, painterly, etc.)
+    5. Texture and details
+    6. Mood and atmosphere
+    
+    Be descriptive and specific. Format as a JSON-like structure or bullet points.`;
+
+    const result = await model.generateContent([
+      prompt,
+      {
+        inlineData: {
+          data: imageBytes,
+          mimeType: imageFile.type
+        }
+      }
+    ]);
+
+    const styleAnalysis = result.response.text().trim();
+    return styleAnalysis;
+    
+  } catch (error) {
+    console.error('Error extracting style from image:', error);
+    // Return a default style analysis if extraction fails
+    return "Color palette: Varied\nLighting: Balanced\nComposition: Standard\nStyle: Photographic\nMood: Neutral";
+  }
+};
